@@ -939,7 +939,7 @@ async def handle_message(client, message):
         await compress_video(client, message)
     elif text.startswith(('/calidad', '.calidad')):
         update_video_settings(text[len('/calidad '):])
-        await message.reply(f"Configuración de video actualizada: {video_settings}")
+        await message.reply(f"🔄 Configuración Actualizada⚙️: {video_settings}")
     elif text.startswith(('/adduser', '.adduser')):
         if user_id in admin_users:
             await add_user(client, message)
