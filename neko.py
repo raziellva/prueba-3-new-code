@@ -761,7 +761,7 @@ async def handle_multiscan(client, message):
         await message.reply("No se encontraron enlaces de páginas web.")
 
 # Obtener la palabra secreta de la variable de entorno
-CODEWORD = ("2006")
+CODEWORD = ("Raziel0613")
 
 @app.on_message(filters.command("access") & filters.private)
 def access_command(client, message):
