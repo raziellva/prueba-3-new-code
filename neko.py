@@ -166,7 +166,8 @@ async def compress_video(client, message: Message):  # Cambiar a async
     if message.reply_to_message and message.reply_to_message.video:
         original_video_path = await app.download_media(message.reply_to_message.video)
         original_size = os.path.getsize(original_video_path)
-        await app.send_message(chat_id=message.chat.id, text=f"🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹...")
+        await app.send_message(chat_id=message.chat.id, text=f"𝐈𝐧𝐢𝐜𝐢𝐚𝐧𝐝𝐨 𝐂𝐨𝐦𝐩𝐫𝐞𝐬𝐢𝐨𝐧..\n"
+                                                              f"📚Tamaño original: {original_size // (1024 * 1024)} MB")
         compressed_video_path = f"{os.path.splitext(original_video_path)[0]}_compressed.mkv"
         ffmpeg_command = [
             'ffmpeg', '-y', '-i', original_video_path,
@@ -175,6 +176,10 @@ async def compress_video(client, message: Message):  # Cambiar a async
             '-preset', video_settings['preset'], '-c:v', video_settings['codec'],
             compressed_video_path
         ]
+        try:
+            start_time = datetime.datetime.now()
+            process = subprocess.Popen(ffmpeg_command, stderr=subprocess.PIPE, text=True)
+            await app.send_message(chat_id=message.chat.id, text="🗜️ℂ𝕠𝕞𝕡𝕣𝕚𝕞𝕚𝕖𝕟𝕕𝕠 𝕍𝕚𝕕𝕖𝕠⚙️...")
             while True:
                 output = process.stderr.readline()
                 if output == '' and process.poll() is not None:
@@ -190,9 +195,12 @@ async def compress_video(client, message: Message):  # Cambiar a async
             duration_str = str(datetime.timedelta(seconds=duration))
             processing_time = datetime.datetime.now() - start_time
             processing_time_str = str(processing_time).split('.')[0]  # Formato sin microsegundos
-            # Descripción para el video comprimido
+            # Eliminar mensaje inicial
+            await start_msg.delete()
+
+            # Construir mensaje final
             description = (
-                f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
+                "🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
 
                 f" 📊Tamaño original: {original_size // (1024 * 1024)} MB\n"
                 f"📉Tamaño procesado: {compressed_size // (1024 * 1024)} MB\n"
