@@ -26,7 +26,7 @@ bot_token = os.getenv('TOKEN')
 BOT_IS_PUBLIC = os.getenv("BOT_IS_PUBLIC", "").lower() == "true"
 
 # Configuración de usuarios
-admin_users = list(map(int, os.getenv('ADMINS', '').split(','))
+admin_users = list(map(int, os.getenv('ADMINS', '').split(',')))
 users = list(map(int, os.getenv('USERS', '').split(','))
 temp_users = []
 temp_chats = []
