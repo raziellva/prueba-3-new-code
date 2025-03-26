@@ -166,8 +166,7 @@ async def compress_video(client, message: Message):  # Cambiar a async
     if message.reply_to_message and message.reply_to_message.video:
         original_video_path = await app.download_media(message.reply_to_message.video)
         original_size = os.path.getsize(original_video_path)
-        await app.send_message(chat_id=message.chat.id, text=f"𝐈𝐧𝐢𝐜𝐢𝐚𝐧𝐝𝐨 𝐂𝐨𝐦𝐩𝐫𝐞𝐬𝐢𝐨𝐧..\n"
-                                                              f"📚Tamaño original: {original_size // (1024 * 1024)} MB")
+        await app.send_message(chat_id=message.chat.id, text=f"📚Tamaño original: {original_size // (1024 * 1024)} MB")
         compressed_video_path = f"{os.path.splitext(original_video_path)[0]}_compressed.mkv"
         ffmpeg_command = [
             'ffmpeg', '-y', '-i', original_video_path,
@@ -179,7 +178,8 @@ async def compress_video(client, message: Message):  # Cambiar a async
         try:
             start_time = datetime.datetime.now()
             process = subprocess.Popen(ffmpeg_command, stderr=subprocess.PIPE, text=True)
-            await app.send_message(chat_id=message.chat.id, text="🗜️ℂ𝕠𝕞𝕡𝕣𝕚𝕞𝕚𝕖𝕟𝕕𝕠 𝕍𝕚𝕕𝕖𝕠⚙️...")
+            await app.send_message(chat_id=message.chat.id, text="🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹...)
+              f"▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰")\n"
             while True:
                 output = process.stderr.readline()
                 if output == '' and process.poll() is not None:
