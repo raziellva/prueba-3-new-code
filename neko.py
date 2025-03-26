@@ -178,7 +178,7 @@ async def compress_video(client, message: Message):  # Cambiar a async
         try:
             start_time = datetime.datetime.now()
             process = subprocess.Popen(ffmpeg_command, stderr=subprocess.PIPE, text=True)
-            await app.send_message(chat_id=message.chat.id, text="🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹...)
+            await app.send_message(chat_id=message.chat.id, text="🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹...")
               f"▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰")\n"
             while True:
                 output = process.stderr.readline()
