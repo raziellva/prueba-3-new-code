@@ -202,15 +202,12 @@ async def compress_video(client, message: Message):  # Cambiar a async
             description = (
                 "🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
 
-                f"┠• Tamaño original: {original_size // (1024 * 1024)} MB\n"
-                f"┠• Tamaño comprimido: {compressed_size // (1024 * 1024)} MB\n"
-                f"┖• Tiempo de procesamiento: {processing_time_str}\n"
-                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
-                f"⚙️𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮⚙️\n"
-                f"•𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏:  {video_settings['resolution']}\n" 
-                f"•𝑪𝑹𝑭: {video_settings['crf']}\n"
-                f"•𝑭𝑷𝑺: {video_settings['fps']}\n"
-                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+                f" 📊Tamaño original: {original_size // (1024 * 1024)} MB\n"
+                f"📉Tamaño procesado: {compressed_size // (1024 * 1024)} MB\n"
+                f"⏰ Tiempo de procesamiento: {processing_time_str}\n"
+                f" ⏱️Duración: {duration_str}\n"
+
+                f" @toyota_Supra1993 "
             )
             # Enviar el video comprimido con la descripción
             await app.send_document(chat_id=message.chat.id, document=compressed_video_path, caption=description)
