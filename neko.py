@@ -35,9 +35,9 @@ Me tomo mas tiempo de lo qué pensaba cortar este código, creo que es falta de 
 
 video_settings = {
     'resolution': '854x480',
-    'crf': '25',
-    'audio_bitrate': '150k',
-    'fps': '30',
+    'crf': '35',
+    'audio_bitrate': '60k',
+    'fps': '15',
     'preset': 'veryfast',
     'codec': 'libx264'
 }
@@ -118,7 +118,7 @@ async def add_user(client, message):
     try:
         user_id = int(message.text.split("/adduser")[1])
         if user_id in users:
-            await message.reply_text(f"✅El ID:  \n`{user_id}`\nya esta en la lista de usuarios permitidos.") 
+            await message.reply_text(f"El ID:  \n`{user_id}`\nya esta en la lista de usuarios permitidos.") 
             return
             
         users.append(user_id)
@@ -140,16 +140,7 @@ async def remove_user(client, message):
             await message.reply_text(f"❌El usuario:  \n`{user_id}`\nno se encuentra en la lista.")
     except (IndexError, ValueError):
         await message.reply_text("💢 Formato de comando incorrecto \n /banuser + ID.")
-        # Añadir el ID del usuario a la lista temp_users si no está ya añadido
-        if user_id not in temp_users:
-            temp_users.append(user_id)
-            allowed_users.append(user_id)  
-        # Añadir también a allowed_users
-            message.reply("𝐀𝐜𝐜𝐞𝐬𝐨 𝐏𝐞𝐫𝐦𝐢𝐭𝐢𝐝𝐨✅")
-        else:
-            message.reply("Ya estás en la lista de acceso temporal.")
-    else:
-        message.reply("𝐀𝐜𝐜𝐞𝐬𝐨 𝐃𝐞𝐧𝐞𝐠𝐚𝐝𝐨❌")
+
 
 
 
