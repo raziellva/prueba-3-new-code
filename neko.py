@@ -17,9 +17,9 @@ from pyrogram.types import Message
 
 
 # Configuracion del bot
-api_id = os.getenv('28193212')
-api_hash = os.getenv('14c5ec97b18a391d526e4a461e4a5f82')
-bot_token = os.getenv('7650038284:AAG-KvheZeNuejL4AfH4KnKvbygBLm9VxKY')
+api_id = os.getenv('')
+api_hash = os.getenv('')
+bot_token = os.getenv('')
 
 # Administradores y Usuarios del bot
 admin_users = list(map(int, os.getenv('ADMINS').split(',')))
