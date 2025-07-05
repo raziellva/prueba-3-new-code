@@ -210,7 +210,7 @@ async def compress_video(client, message: Message):  # Cambiar a async
                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
             )
             # Enviar el video comprimido con la descripción
-            await app.send_video(chat_id=message.chat.id, video=compressed_video_path, caption=description)
+            await app.send_document(chat_id=message.chat.id, document=compressed_video_path, caption=description)
         except Exception as e:
             await app.send_message(chat_id=message.chat.id, text=f"Ocurrió un error al comprimir el video: {e}")
         finally:
