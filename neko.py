@@ -121,8 +121,8 @@ async def handle_auto_compress(client, message: Message):
     state = "activada" if new_state else "desactivada"
     await message.reply(f"✅ Compresión automática {state}.")
 
-# Función para manejar videos subidos (corregida)
-@app.on_message(filters.video & ~filters.command())
+# Versión recomendada (Opción 1)
+@app.on_message(filters.video & ~filters.command)
 async def handle_video_upload(client, message: Message):
     if video_settings['auto_compress'] and message.from_user.id in users:
         await compress_video(client, message, auto_mode=True)
