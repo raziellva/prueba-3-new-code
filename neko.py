@@ -36,6 +36,7 @@ bot_in_use = False
 
 user_emails = {}
 image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp']
+AUTO_COMPRESS_VIDEOS = True
 
 import os
 import hashlib
@@ -195,6 +196,20 @@ async def compress_video(client, message: Message):  # Cambiar a async
             duration_str = str(datetime.timedelta(seconds=duration))
             processing_time = datetime.datetime.now() - start_time
             processing_time_str = str(processing_time).split('.')[0]  # Formato sin microsegundos
+            
+                    # Enviar actualizaciones periódicas
+        last_update = datetime.datetime.now()
+        while True:
+            await asyncio.sleep(5)  # Actualizar cada 5 segundos
+            
+            if process.returncode is not None:
+                break
+                
+            if (datetime.datetime.now() - last_update).seconds >= 30:
+                elapsed = (datetime.datetime.now() - start_time).seconds
+                await message.reply(f"⏳ Comprimiendo... Tiempo transcurrido: {elapsed} segundos")
+                last_update = datetime.datetime.now()
+                
             # Descripción para el video comprimido
             description = (
                 f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
@@ -920,6 +935,43 @@ BOT_IS_PUBLIC = os.getenv("BOT_IS_PUBLIC")
 def is_bot_public():
     return BOT_IS_PUBLIC and BOT_IS_PUBLIC.lower() == "true"
 
+# [Aquí van todas las otras funciones...]
+# [Justo antes de handle_message, añade esto:]
+
+@app.on_message(filters.video & ~filters.command)
+async def auto_compress_video_handler(client, message):
+    if not AUTO_COMPRESS_VIDEOS:
+        return
+    
+    try:
+        video_path = await message.download()
+        compressed_path = f"{video_path}_compressed.mp4"
+        
+        ffmpeg_cmd = [
+            'ffmpeg', '-y', '-i', video_path,
+            '-s', '854x480', '-crf', '28',
+            '-b:a', '64k', '-preset', 'fast',
+            '-c:v', 'libx264', '-c:a', 'aac',
+            compressed_path
+        ]
+        
+        subprocess.run(ffmpeg_cmd, check=True)
+        await message.reply_video(compressed_path)
+        os.remove(video_path)
+        os.remove(compressed_path)
+        
+    except Exception as e:
+        print(f"Error en compresión automática: {e}")
+        if 'video_path' in locals() and os.path.exists(video_path):
+            os.remove(video_path)
+        if 'compressed_path' in locals() and os.path.exists(compressed_path):
+            os.remove(compressed_path)
+
+# [Aquí continúa handle_message...]
+@app.on_message(filters.text)
+async def handle_message(client, message):
+    # ... (código existente)
+    
 @app.on_message(filters.text)
 async def handle_message(client, message):
     text = message.text
