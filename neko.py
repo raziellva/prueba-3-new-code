@@ -77,17 +77,22 @@ async def get_video_info(video_path):
         return None
 
 async def compress_video(client, message: Message):
-    # ----- INICIO DE CAMBIO: aceptar video directo o en respuesta -----
-    if message.reply_to_message and message.reply_to_message.video:
-        video_msg = message.reply_to_message.video
-    elif message.video:
-        video_msg = message.video
+    
+    # 1) Identificar cuál es el objeto video
+    if message.video:
+        target = message.video
+    elif message.reply_to_message and message.reply_to_message.video:
+        target = message.reply_to_message.video
     else:
-        await message.reply(
-            "Por favor, responde a un video o envía uno directamente para comprimirlo."
-        )
+        await message.reply("Por favor, envía o responde a un video para comprimirlo.")
         return
 
+    # 2) Descargar el video (usamos `target` siempre)
+    original_video_path = await client.download_media(
+        target,
+        file_name=f"original_{message.message_id}.mp4"
+    )
+   
     try:
         # Descargar el video original
         original_video_path = await app.download_media(
