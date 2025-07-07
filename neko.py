@@ -1046,15 +1046,13 @@ async def handle_message(client, message):
             sender_info = f"Respuesta de @{message.from_user.username}" if message.from_user.username else f"Respuesta de user ID: {message.from_user.id}"
             await client.send_message(user_id, f"{sender_info}: {message.text}")
             
-            @app.on_callback_query()
-@app.on_callback_query()
-async def callback_handler(client,callback_query):
-   
+ @app.on_callback_query()
+async def callback_handler(client, callback_query):
     presets_map = {
-        "preset_anime":       "resolution=854x480 crf=32 audio_bitrate=60k fps=15 preset=veryfast codec=libx264",
-        "preset_reels":       "resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
-        "preset_pelis_hd":    "resolution=854x480 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
-        "preset_shows":       "resolution=854x480 crf=35 audio_bitrate=60k fps=18 preset=veryfast codec=libx264",
+        "preset_anime": "resolution=854x480 crf=32 audio_bitrate=60k fps=15 preset=veryfast codec=libx264",
+        "preset_reels": "resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
+        "preset_pelis_hd": "resolution=854x480 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
+        "preset_shows": "resolution=854x480 crf=35 audio_bitrate=60k fps=18 preset=veryfast codec=libx264",
         "preset_pelis_media": "resolution=854x480 crf=32 audio_bitrate=60k fps=18 preset=veryfast codec=libx264"
     }
 
@@ -1063,7 +1061,10 @@ async def callback_handler(client,callback_query):
         success = update_video_settings(presets_map[data])
         if success:
             await callback_query.message.edit_text(
-                f"✅ Preset aplicado:\n`{presets_map[data]}`",
+                f"Configuración actualizada a: {data.replace('preset_', '').replace('_', ' ').title()}\n\n"
+                f"Parámetros aplicados:\n{presets_map[data]}"
+            )
+        await callback_query.answer("✅ Configuración actualizada"):\n`{presets_map[data]}`",
                 parse_mode="markdown"
             )
         else:
