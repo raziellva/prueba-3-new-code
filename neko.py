@@ -34,14 +34,11 @@ users = [5644237743, 6237974157]
 # Configuración de video por defecto
 video_settings = {
     'resolution': '854x480',
-    'crf': '28',
-    'audio_bitrate': '128k',
-    'fps': '24',
-    'preset': 'medium',
+    'crf': '32',
+    'audio_bitrate': '164k',
+    'fps': '18',
+    'preset': 'veryfast',
     'codec': 'libx264',
-    'threads': '0',
-    'max_muxing_queue_size': '1024'
-}
 
 app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
@@ -61,27 +58,33 @@ def update_video_settings(command: str):
 # Teclado inline con presets de calidad
 def quality_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎌 ANIME (fps 15)", callback_data="anime")],
-        [InlineKeyboardButton("🎬 PELÍCULAS (fps 18)", callback_data="peliculas")]
+        [InlineKeyboardButton("🧩REELS", callback_data="reels")],
+        [InlineKeyboardButton("🎌 ANIME", callback_data="anime")],
+        [InlineKeyboardButton("🎭 SHOWS", callback_data="shows")],
+        [InlineKeyboardButton("🎬 PELÍCULAS Pro", callback_data="PelículasPro")],
+        [InlineKeyboardButton("🎬 PELÍCULAS Medium", callback_data="peliculasmedium")]
     ])
 
 async def handle_start(client, message):
     await message.reply(
-        "👋 ¡Bienvenido! Elige una calidad predefinida o responde a un video con /convert.",
+        "𝗦𝗘𝗟𝗘𝗖𝗖𝗜𝗢𝗡𝗔𝗥 𝗖𝗔𝗟𝗜𝗗𝗔𝗗:",
         reply_markup=quality_keyboard()
     )
 
 @app.on_callback_query()
 async def quality_callback(client, callback_query: CallbackQuery):
     quality_map = {
+        "reels":    "resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
         "anime":    "resolution=854x480 crf=32 audio_bitrate=60k fps=15 preset=veryfast codec=libx264",
-        "peliculas":"resolution=854x480 crf=32 audio_bitrate=60k fps=18 preset=veryfast codec=libx264"
+        "show":    "resolution=854x480 crf=35 audio_bitrate=60k fps=18 preset=veryfast codec=libx264",
+        "peliculaspro":   "resolution=854x480 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
+        "peliculasmedium":  "resolution=854x480 crf=32 audio_bitrate=60k fps=18 preset=veryfast codec=libx264"
     }
     config = quality_map.get(callback_query.data)
     if config and update_video_settings(config):
-        await callback_query.answer("✅ Calidad aplicada.")
+        await callback_query.answer("🛠️ Calidad aplicada🛠️.")
         await callback_query.message.edit_text(
-            f"🎚 Configuración actual:\n{video_settings}"
+            f"⚙️ Configuración actual⚙️:\n{video_settings}"
         )
     else:
         await callback_query.answer("❌ Error al aplicar calidad.")
