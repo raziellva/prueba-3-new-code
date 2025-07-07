@@ -14,10 +14,9 @@ from moodleclient import upload_token
 import datetime
 import subprocess
 from pyrogram.types import Message
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import os
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton  
 
-# Configuración global DEBE estar aquí
+
 video_settings = {
     'resolution': '854x480',
     'crf': '32',
@@ -26,8 +25,6 @@ video_settings = {
     'preset': 'veryfast',
     'codec': 'libx264'
 }
-
-
 
 # Configuracion del bot
 api_id = os.getenv('API_ID')
@@ -159,23 +156,6 @@ async def rename(client, message):
 
 
 
-video_settings = {
-    'resolution': '854x480',
-    'crf': '32',
-    'audio_bitrate': '60k',
-    'fps': '18',
-    'preset': 'veryfast',
-    'codec': 'libx264'
-}
-def calidad_presets_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎌 Animes y Animadas", callback_data="preset_anime")],
-        [InlineKeyboardButton("📱 Reels y Cortos",    callback_data="preset_reels")],
-        [InlineKeyboardButton("🎬 Pelis HD",          callback_data="preset_pelis_hd")],
-        [InlineKeyboardButton("📺 Shows/Reality",      callback_data="preset_shows")],
-        [InlineKeyboardButton("🍿 Pelis/Series Media", callback_data="preset_pelis_media")]
-    ])
-    
 
 def update_video_settings(command: str):
     settings = command.split()
@@ -531,22 +511,8 @@ async def handle_listo(message):
 
 
 user_comp = {}
-
 async def handle_start(client, message):
-    # Primer mensaje de bienvenida
     await message.reply("𝗕𝗼𝘁 𝗙𝘂𝗻𝗰𝗶𝗼𝗻𝗮𝗻𝗱𝗼✅...")
-
-    # Segundo mensaje con teclado de presets
-    texto = (
-        "👋 ¡Bienvenido al compresor!\n"
-        "Selecciona un preset para aplicar rápidamente:"
-    )
-    await message.reply(
-        texto,
-        reply_markup=calidad_presets_keyboard()
-    )
-    
-    
 
 async def add_user(client, message):
     new_user_id = int(message.text.split()[1])
@@ -971,72 +937,7 @@ async def handle_message(client, message):
     # Aquí puedes continuar con el resto de tu lógica de manejo de mensajes.
     if text.startswith(('/start', '.start', '/start')):
         await handle_start(client, message)
-    elif text.startswith(('/@app.on_callback_query()
-async def quality_callback(client, callback_query):
-    QUALITY_PROFILES = {
-        "quality_reels": {
-            "name": "📱 Reels y Cortos",
-            "settings": {
-                'resolution': '720x1280',
-                'crf': '25',
-                'fps': '30'
-            }
-        },
-        "quality_hd": {
-            "name": "🎬 Películas HD",
-            "settings": {
-                'resolution': '1920x1080',
-                'crf': '22',
-                'fps': '24'
-            }
-        },
-        "quality_shows": {
-            "name": "📺 Shows/Reality",
-            "settings": {
-                'resolution': '1280x720',
-                'crf': '28',
-                'fps': '30'
-            }
-        },
-        "quality_medium": {
-            "name": "🍿 Calidad Media",
-            "settings": {
-                'resolution': '854x480',
-                'crf': '32',
-                'fps': '24'
-            }
-        }
-    }
-
-    try:
-        data = callback_query.data
-        if data in QUALITY_PROFILES:
-            profile = QUALITY_PROFILES[data]
-            
-            # Actualización GLOBAL de settings
-            video_settings.update(profile["settings"])
-            
-            # Respuesta visual al usuario
-            await callback_query.answer(f"✅ {profile['name']} aplicado")
-            
-            # Mensaje detallado
-            await callback_query.message.edit_text(
-                f"⚙️ **Configuración Actualizada**\n\n"
-                f"**Perfil:** {profile['name']}\n"
-                f"**Resolución:** {video_settings['resolution']}\n"
-                f"**Calidad (CRF):** {video_settings['crf']}\n"
-                f"**FPS:** {video_settings['fps']}\n\n"
-                "Envía un video y usa /convert para aplicar",
-                parse_mode="markdown"
-            )
-        else:
-            await callback_query.answer("⚠️ Opción no reconocida")
-
-    except Exception as e:
-        error_msg = f"Error: {str(e)}"
-        print(error_msg)
-        await callback_query.answer("⚠️ Error al cambiar configuración")
-        await callback_query.message.reply(f"❌ {error_msg}")', '.convert')):
+    elif text.startswith(('/convert', '.convert')):
         await compress_video(client, message)
     elif text.startswith(('/calidad', '.calidad')):
         update_video_settings(text[len('/calidad '):])
@@ -1121,63 +1022,8 @@ async def quality_callback(client, callback_query):
             user_id = original_message["user_id"]
             sender_info = f"Respuesta de @{message.from_user.username}" if message.from_user.username else f"Respuesta de user ID: {message.from_user.id}"
             await client.send_message(user_id, f"{sender_info}: {message.text}")
-    # Calidades
-@app.on_callback_query()
-async def callback_handler(client, callback_query):
-    # Diccionario de presets mejorado
-    PRESETS = {
-        "preset_reels": {
-            "name": "🎥 Reels y Cortos",
-            "resolution": "420x720",
-            "crf": "25",
-            "fps": "30"
-        },
-        "preset_hd": {
-            "name": "🎬 Pelis HD",
-            "resolution": "1920x1080",
-            "crf": "22",
-            "fps": "24"
-        },
-        "preset_shows": {
-            "name": "📺 Shows/Reality",
-            "resolution": "1280x720",
-            "crf": "28",
-            "fps": "30"
-        },
-        "preset_media": {
-            "name": "🍿 Pelis/Series Media",
-            "resolution": "854x480",
-            "crf": "32",
-            "fps": "24"
-        }
-    }
-
-    try:
-        data = callback_query.data
-        if data in PRESETS:
-            # Actualizar configuración
-            current_settings.update(PRESETS[data])
             
-            # Mensaje de confirmación
-            await callback_query.answer(f"✅ {PRESETS[data]['name']} aplicado")
-            await callback_query.message.edit_text(
-                f"⚙️ **Configuración Actualizada**\n\n"
-                f"▸ **Preset:** {PRESETS[data]['name']}\n"
-                f"▸ **Resolución:** {current_settings['resolution']}\n"
-                f"▸ **CRF:** {current_settings['crf']}\n"
-                f"▸ **FPS:** {current_settings['fps']}\n\n"
-                "Envía /convert para comprimir un video",
-                parse_mode="markdown"
-            )
-        else:
-            await callback_query.answer("⚠️ Preset no reconocido")
-
-    except Exception as e:
-        error_msg = f"❌ Error al aplicar preset: {str(e)}"
-        print(error_msg)
-        await callback_query.answer(error_msg, show_alert=True)
-            
-   # --- FUNCIÓN PARA MOSTRAR TECLADO ---
+# --- FUNCIÓN PARA MOSTRAR TECLADO ---
 def get_quality_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📱 Reels y Cortos", callback_data="quality_reels")],
@@ -1266,8 +1112,8 @@ async def convert_video(client, message):
         for file in [video_path, output_path]:
             if file and os.path.exists(file): os.remove(file)
 
-app.run()
-
+# --- FIN DEL ARCHIVO ---
+app.run() 
 
 # Inicia el bot
 #if __name__ == "__main__":
