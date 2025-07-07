@@ -16,6 +16,8 @@ import subprocess
 from pyrogram.types import Message
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+
+
 # Configuracion del bot
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
@@ -144,24 +146,6 @@ async def rename(client, message):
     else:
         await message.reply('Ejecute el comando respondiendo a un archivo')
 
-def get_quality_keyboard():
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("Animes/Series Animadas", callback_data="quality_anime")
-        ],
-        [
-            InlineKeyboardButton("Reels/Videos Cortos", callback_data="quality_reel")
-        ],
-        [
-            InlineKeyboardButton("Películas Buena Calidad", callback_data="quality_movie_hq")
-        ],
-        [
-            InlineKeyboardButton("Shows/Reality", callback_data="quality_show")
-        ],
-        [
-            InlineKeyboardButton("Películas/Series Media Calidad", callback_data="quality_movie_mq")
-        ]
-    ])
 
 
 video_settings = {
@@ -172,6 +156,15 @@ video_settings = {
     'preset': 'veryfast',
     'codec': 'libx264'
 }
+def calidad_presets_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎌 Animes y Animadas", callback_data="preset_anime")],
+        [InlineKeyboardButton("📱 Reels y Cortos",    callback_data="preset_reels")],
+        [InlineKeyboardButton("🎬 Pelis HD",          callback_data="preset_pelis_hd")],
+        [InlineKeyboardButton("📺 Shows/Reality",      callback_data="preset_shows")],
+        [InlineKeyboardButton("🍿 Pelis/Series Media", callback_data="preset_pelis_media")]
+    ])
+    
 
 def update_video_settings(command: str):
     settings = command.split()
@@ -529,6 +522,16 @@ async def handle_listo(message):
 user_comp = {}
 async def handle_start(client, message):
     await message.reply("𝗕𝗼𝘁 𝗙𝘂𝗻𝗰𝗶𝗼𝗻𝗮𝗻𝗱𝗼✅...")
+    async def handle_start(client, message):
+    texto = (
+        "👋 ¡Bienvenido al compresor!\n"
+        "Selecciona un preset para aplicar rápidamente:"
+    )
+    await message.reply(
+        texto,
+        reply_markup=calidad_presets_keyboard()
+    )
+    
 
 async def add_user(client, message):
     new_user_id = int(message.text.split()[1])
@@ -937,49 +940,6 @@ BOT_IS_PUBLIC = os.getenv("BOT_IS_PUBLIC")
 
 def is_bot_public():
     return BOT_IS_PUBLIC and BOT_IS_PUBLIC.lower() == "true"
-    
-@app.on_callback_query()
-async def handle_callback_query(client, callback_query):
-    try:
-        data = callback_query.data
-        user_id = callback_query.from_user.id
-        
-        if not is_bot_public() and user_id not in allowed_users:
-            await callback_query.answer("Acceso denegado", show_alert=True)
-            return
-
-        if data.startswith("quality_"):
-            # ... resto del código ...
-            await callback_query.answer("Configuración actualizada")
-            
-    except Exception as e:
-        print(f"Error en callback: {e}")
-    
-    if data.startswith("quality_"):
-        quality_type = data.split("_")[1]
-        
-        if quality_type == "anime":
-            settings = "resolution=854x480 crf=32 audio_bitrate=60k fps=15 preset=veryfast codec=libx264"
-            description = "Calidad para Animes y Series Animadas"
-        elif quality_type == "reel":
-            settings = "resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264"
-            description = "Calidad para Reels y Videos Cortos"
-        elif quality_type == "movie_hq":
-            settings = "resolution=854x480 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264"
-            description = "Calidad para Películas en Buena Calidad"
-        elif quality_type == "show":
-            settings = "resolution=854x480 crf=35 audio_bitrate=60k fps=18 preset=veryfast codec=libx264"
-            description = "Calidad para Shows/Reality"
-        elif quality_type == "movie_mq":
-            settings = "resolution=854x480 crf=32 audio_bitrate=60k fps=18 preset=veryfast codec=libx264"
-            description = "Calidad para Películas y Series en Calidad Media"
-        
-        update_video_settings(settings)
-        await callback_query.answer(f"Configuración actualizada: {description}")
-        await callback_query.message.edit_text(
-            f"⚙️ Configuración actualizada:\n\n{description}\n\n{settings}",
-            reply_markup=get_quality_keyboard()
-        )
 
 @app.on_message(filters.text)
 async def handle_message(client, message):
@@ -999,11 +959,6 @@ async def handle_message(client, message):
     elif text.startswith(('/convert', '.convert')):
         await compress_video(client, message)
     elif text.startswith(('/calidad', '.calidad')):
-    elif text.startswith(('/calidades', '.calidades')):
-    await message.reply(
-        "🎬 Selecciona una calidad predefinida:",
-        reply_markup=get_quality_keyboard()
-    )
         update_video_settings(text[len('/calidad '):])
         await message.reply(f"🔄 Configuración Actualizada⚙️: {video_settings}")
     elif text.startswith(('/adduser', '.adduser')):
@@ -1086,6 +1041,27 @@ async def handle_message(client, message):
             user_id = original_message["user_id"]
             sender_info = f"Respuesta de @{message.from_user.username}" if message.from_user.username else f"Respuesta de user ID: {message.from_user.id}"
             await client.send_message(user_id, f"{sender_info}: {message.text}")
+            
+            @app.on_callback_query()
+async def callback_handler(client, callback_query):
+    presets_map = {
+        "preset_anime":       "resolution=854x480 crf=32 audio_bitrate=60k fps=15 preset=veryfast codec=libx264",
+        "preset_reels":       "resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
+        "preset_pelis_hd":    "resolution=854x480 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
+        "preset_shows":       "resolution=854x480 crf=35 audio_bitrate=60k fps=18 preset=veryfast codec=libx264",
+        "preset_pelis_media": "resolution=854x480 crf=32 audio_bitrate=60k fps=18 preset=veryfast codec=libx264"
+    }
+
+    data = callback_query.data
+    if data in presets_map:
+        success = update_video_settings(presets_map[data])
+        if success:
+            await callback_query.message.edit_text(
+                f"✅ Preset aplicado:\n`{presets_map[data]}`",
+                parse_mode="markdown"
+            )
+        else:
+            await callback_query.message.edit_text("⚠️ No se pudo aplicar el preset.")
             
 
 app.run()
