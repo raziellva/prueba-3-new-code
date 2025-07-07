@@ -1047,7 +1047,9 @@ async def handle_message(client, message):
             await client.send_message(user_id, f"{sender_info}: {message.text}")
             
             @app.on_callback_query()
-async def callback_handler(client, callback_query):
+@app.on_callback_query()
+async def callback_handler(client,callback_query):
+   
     presets_map = {
         "preset_anime":       "resolution=854x480 crf=32 audio_bitrate=60k fps=15 preset=veryfast codec=libx264",
         "preset_reels":       "resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
