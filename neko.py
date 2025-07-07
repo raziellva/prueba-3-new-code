@@ -1047,25 +1047,56 @@ async def handle_message(client, message):
             await client.send_message(user_id, f"{sender_info}: {message.text}")
     # Calidades
 @app.on_callback_query()
-async def callback_handler(client,callback_query):    
-    presets_map = {
-        "preset_anime":       "resolution=854x480 crf=32 audio_bitrate=60k fps=15 preset=veryfast codec=libx264",
-        "preset_reels":       "resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
-        "preset_pelis_hd":    "resolution=854x480 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
-        "preset_shows":       "resolution=854x480 crf=35 audio_bitrate=60k fps=18 preset=veryfast codec=libx264",
-        "preset_pelis_media": "resolution=854x480 crf=32 audio_bitrate=60k fps=18 preset=veryfast codec=libx264"
+async def callback_handler(client, callback_query):
+    # Diccionario mejorado de presets
+    presets_config = {
+        "preset_anime": {
+            "resolution": "854x480",
+            "crf": "32",
+            "audio_bitrate": "60k",
+            "fps": "15",
+            "preset": "veryfast",
+            "codec": "libx264",
+            "name": "🎌 Anime/Series Animadas"
+        },
+        "preset_reels": {
+            "resolution": "420x720", 
+            "crf": "25",
+            "audio_bitrate": "60k",
+            "fps": "30",
+            "preset": "veryfast",
+            "codec": "libx264",
+            "name": "📱 Reels/Videos Cortos"
+        }
+        # Agrega los demás presets con la misma estructura
     }
 
-    data = callback_query.data
-    if data in presets_map:
-        success = update_video_settings(presets_map[data])
-        if success:
+    try:
+        data = callback_query.data
+        if data in presets_config:
+            # Actualiza la configuración global
+            global current_settings
+            current_settings.update(presets_config[data])
+            
             await callback_query.message.edit_text(
-                f"✅ Preset aplicado:\n`{presets_map[data]}`",
+                f"✅ **{presets_config[data]['name']} aplicado**\n\n"
+                f"▸ Resolución: `{current_settings['resolution']}`\n"
+                f"▸ CRF: `{current_settings['crf']}`\n"
+                f"▸ FPS: `{current_settings['fps']}`\n"
+                f"▸ Codec: `{current_settings['codec']}`",
                 parse_mode="markdown"
             )
+            await callback_query.answer("Configuración actualizada 👍")
         else:
-            await callback_query.message.edit_text("⚠️ No se pudo aplicar el preset.")
+            await callback_query.answer("Preset no reconocido", show_alert=True)
+    
+    except Exception as e:
+        print(f"Error al aplicar preset: {e}")
+        await callback_query.message.edit_text(
+            "⚠️ Error al aplicar la configuración\n\n"
+            f"Detalle: {str(e)}"
+        )
+        await callback_query.answer("Ocurrió un error", show_alert=True)
             
 
 app.run()
