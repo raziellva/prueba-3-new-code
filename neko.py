@@ -520,9 +520,12 @@ async def handle_listo(message):
 
 
 user_comp = {}
+
 async def handle_start(client, message):
+    # Primer mensaje de bienvenida
     await message.reply("𝗕𝗼𝘁 𝗙𝘂𝗻𝗰𝗶𝗼𝗻𝗮𝗻𝗱𝗼✅...")
-    async def handle_start(client, message):
+
+    # Segundo mensaje con teclado de presets
     texto = (
         "👋 ¡Bienvenido al compresor!\n"
         "Selecciona un preset para aplicar rápidamente:"
@@ -531,6 +534,7 @@ async def handle_start(client, message):
         texto,
         reply_markup=calidad_presets_keyboard()
     )
+    
     
 
 async def add_user(client, message):
