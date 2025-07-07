@@ -938,14 +938,22 @@ BOT_IS_PUBLIC = os.getenv("BOT_IS_PUBLIC")
 def is_bot_public():
     return BOT_IS_PUBLIC and BOT_IS_PUBLIC.lower() == "true"
     
-    @app.on_callback_query()
+@app.on_callback_query()
 async def handle_callback_query(client, callback_query):
-    data = callback_query.data
-    user_id = callback_query.from_user.id
-    
-    if not is_bot_public() and user_id not in allowed_users:
-        await callback_query.answer("No tienes acceso al bot", show_alert=True)
-        return
+    try:
+        data = callback_query.data
+        user_id = callback_query.from_user.id
+        
+        if not is_bot_public() and user_id not in allowed_users:
+            await callback_query.answer("Acceso denegado", show_alert=True)
+            return
+
+        if data.startswith("quality_"):
+            # ... resto del código ...
+            await callback_query.answer("Configuración actualizada")
+            
+    except Exception as e:
+        print(f"Error en callback: {e}")
     
     if data.startswith("quality_"):
         quality_type = data.split("_")[1]
