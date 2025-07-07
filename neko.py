@@ -14,17 +14,7 @@ from moodleclient import upload_token
 import datetime
 import subprocess
 from pyrogram.types import Message
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton  
 
-
-video_settings = {
-    'resolution': '854x480',
-    'crf': '32',
-    'audio_bitrate': '60k',
-    'fps': '24',
-    'preset': 'veryfast',
-    'codec': 'libx264'
-}
 
 # Configuracion del bot
 api_id = os.getenv('API_ID')
@@ -156,6 +146,14 @@ async def rename(client, message):
 
 
 
+video_settings = {
+    'resolution': '854x480',
+    'crf': '32',
+    'audio_bitrate': '60k',
+    'fps': '18',
+    'preset': 'veryfast',
+    'codec': 'libx264'
+}
 
 def update_video_settings(command: str):
     settings = command.split()
@@ -1023,97 +1021,10 @@ async def handle_message(client, message):
             sender_info = f"Respuesta de @{message.from_user.username}" if message.from_user.username else f"Respuesta de user ID: {message.from_user.id}"
             await client.send_message(user_id, f"{sender_info}: {message.text}")
             
-# --- FUNCIÓN PARA MOSTRAR TECLADO ---
-def get_quality_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📱 Reels y Cortos", callback_data="quality_reels")],
-        [InlineKeyboardButton("🎬 Películas HD", callback_data="quality_hd")],
-        [InlineKeyboardButton("📺 Shows/Reality", callback_data="quality_shows")],
-        [InlineKeyboardButton("🍿 Calidad Media", callback_data="quality_medium")]
-    ])
 
-# --- COMANDO CALIDADES ---
-@app.on_message(filters.command("calidades"))
-async def show_qualities(client, message):
-    await message.reply(
-        "🎥 Selecciona un perfil de calidad:",
-        reply_markup=get_quality_keyboard()
-    )
+app.run()
 
-# --- MANEJADOR DE BOTONES ---
-@app.on_callback_query()
-async def quality_callback(client, callback_query):
-    QUALITY_PROFILES = {
-        "quality_reels": {
-            "name": "📱 Reels y Cortos",
-            "settings": {'resolution': '720x1280', 'crf': '25', 'fps': '30'}
-        },
-        "quality_hd": {
-            "name": "🎬 Películas HD",
-            "settings": {'resolution': '1920x1080', 'crf': '22', 'fps': '24'}
-        },
-        "quality_shows": {
-            "name": "📺 Shows/Reality",
-            "settings": {'resolution': '1280x720', 'crf': '28', 'fps': '30'}
-        },
-        "quality_medium": {
-            "name": "🍿 Calidad Media",
-            "settings": {'resolution': '854x480', 'crf': '32', 'fps': '24'}
-        }
-    }
 
-    try:
-        data = callback_query.data
-        if data in QUALITY_PROFILES:
-            video_settings.update(QUALITY_PROFILES[data]["settings"])  # Actualiza la configuración global
-            await callback_query.answer(f"✅ {QUALITY_PROFILES[data]['name']} aplicado")
-            await callback_query.message.edit_text(
-                f"⚙️ **Configuración Actualizada**\n\n"
-                f"**Perfil:** {QUALITY_PROFILES[data]['name']}\n"
-                f"**Resolución:** {video_settings['resolution']}\n"
-                f"**CRF:** {video_settings['crf']}\n"
-                f"**FPS:** {video_settings['fps']}",
-                parse_mode="markdown"
-            )
-    except Exception as e:
-        await callback_query.answer(f"❌ Error: {str(e)}")
-
-# --- COMANDO CONVERT ACTUALIZADO ---
-@app.on_message(filters.command("convert"))
-async def convert_video(client, message):
-    if not message.reply_to_message or not message.reply_to_message.video:
-        await message.reply("⚠️ Responde a un video")
-        return
-
-    try:
-        video_path = await message.reply_to_message.download()
-        output_path = f"compressed_{os.path.basename(video_path)}"
-        
-        ffmpeg_cmd = [
-            'ffmpeg', '-i', video_path,
-            '-s', video_settings['resolution'],
-            '-crf', video_settings['crf'],
-            '-b:a', video_settings['audio_bitrate'],
-            '-r', video_settings['fps'],
-            '-preset', video_settings['preset'],
-            '-c:v', video_settings['codec'],
-            output_path
-        ]
-
-        await message.reply("⏳ Comprimiendo...")
-        subprocess.run(ffmpeg_cmd, check=True)
-        
-        await client.send_video(
-            message.chat.id,
-            output_path,
-            caption=f"🎥 Configuración usada:\nResolución: {video_settings['resolution']}\nCRF: {video_settings['crf']}"
-        )
-    finally:
-        for file in [video_path, output_path]:
-            if file and os.path.exists(file): os.remove(file)
-
-# --- FIN DEL ARCHIVO ---
-app.run() 
 
 # Inicia el bot
 #if __name__ == "__main__":
