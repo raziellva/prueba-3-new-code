@@ -39,6 +39,7 @@ video_settings = {
     'fps': '18',
     'preset': 'veryfast',
     'codec': 'libx264',
+}
 
 app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
