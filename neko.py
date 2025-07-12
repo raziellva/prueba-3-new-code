@@ -116,17 +116,17 @@ async def compress_video(client: Client, message: Message):
             
             # Crear descripción con resultados
             caption = (
-                f"✅ **Video Comprimido**\n\n"
-                f"▫️ Tamaño original: {original_size // (1024 * 1024)} MB\n"
-                f"▫️ Tamaño final: {compressed_size // (1024 * 1024)} MB\n"
-                f"▫️ Reducción: {compression_ratio:.1f}%\n"
-                f"▫️ Tiempo procesamiento: {str(processing_time).split('.')[0]}\n\n"
-                f"⚙️ **Configuración usada**\n"
-                f"  • Resolución: {video_settings['resolution']}\n"
-                f"  • CRF: {video_settings['crf']}\n"
-                f"  • FPS: {video_settings['fps']}\n"
-                f"  • Preset: {video_settings['preset']}"
-            )
+                f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
+                 "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
+                f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
+                f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
+                f" ┖• 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗽𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {processing_time_str}\n"
+                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+                f"⚙️𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮⚙️\n"
+                f"•𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏:  {video_settings['resolution']}\n" 
+                f"•𝑪𝑹𝑭: {video_settings['crf']}\n"
+                f"•𝑭𝑷𝑺: {video_settings['fps']}\n"
+                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
             
             # Enviar video comprimido
             await client.send_video(
@@ -185,7 +185,7 @@ async def quality_command(client, message):
         update_video_settings(message.text.split(maxsplit=1)[1])
         config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
         await message.reply(
-            f"⚙️ **Configuración actualizada**\n\n{config_text}\n\n"
+            f"⚙️ **Configuración actualizada⚙️**\n\n{config_text}\n\n"
             f"Ahora responde a un video con /convert"
         )
     except Exception as e:
@@ -198,11 +198,12 @@ async def start_command(client, message):
     await message.reply(
         "🎥 **Video Compressor Bot**\n\n"
         "**Comandos disponibles:**\n"
-        "• /convert - Comprime un video (responde al video)\n"
-        "• /calidad - Configura parámetros (ej: `/calidad resolution=1280x720 crf=28`)\n\n"
-        "**Parámetros actuales:**\n"
+        "• /convert - Comprime un video\n"
+        [responde al video]\n"
+        "• /calidad - Configura tu calidad\n"
+        (ej: `/calidad resolution=740x480 crf=30 audio_bitrate=65k fps=24 preset=veryfast codec=libx264`]\n\n"
+        "**⚙️ Configuración actual⚙️:**\n"
         f"{config_text}\n\n"
-        "⚙️ Parámetros modificables: `resolution`, `crf`, `fps`, `preset`, `audio_bitrate`, `codec`"
     )
 
 if __name__ == "__main__":
