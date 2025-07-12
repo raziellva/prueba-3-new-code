@@ -197,12 +197,8 @@ async def start_command(client, message):
     config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
     await message.reply(
         "🎥 **Video Compressor Bot**\n\n"
-        "**Comandos disponibles:**\n"
-        "• /convert - Comprime un video (responde al video)\n"
-        "• /calidad - Configura parámetros (ej: `/calidad resolution=1280x720 crf=28`)\n\n"
         "**Parámetros actuales:**\n"
         f"{config_text}\n\n"
-        "⚙️ Parámetros modificables: `resolution`, `crf`, `fps`, `preset`, `audio_bitrate`, `codec`"
     )
 
 if __name__ == "__main__":
