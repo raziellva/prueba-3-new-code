@@ -97,7 +97,7 @@ async def compress_video(client: Client, message: Message):
             compression_ratio = (1 - compressed_size/original_size) * 100
             
             # Crear descripción con resultados
-            description = (
+            caption = (
                 f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
                  "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
                 f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
