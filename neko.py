@@ -4,7 +4,7 @@ import subprocess
 import asyncio
 import re
 import math
-from pyrogram import Client, filters, types
+from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 # Configuración del bot
@@ -90,7 +90,7 @@ async def compress_video(client: Client, message: Message):
             # Crear mensaje inicial de estado
             status_message = await message.reply("⬇️ Iniciando descarga del video...")
             
-            # Descargar el video original con timeout extendido
+            # Descargar el video original con timeout extendido (CORRECCIÓN APLICADA)
             original_video_path = await client.download_media(
                 message.reply_to_message.video,
                 progress=lambda c, t: asyncio.create_task(progress_callback(c, t, status_message))
@@ -101,7 +101,8 @@ async def compress_video(client: Client, message: Message):
             duration = await get_video_duration(original_video_path)
             
             # Preparar ruta para video comprimido
-            compressed_video_path = f"{os.path.splitext(original_video_path)[0]}_compressed.mkv"
+            base_path = os.path.splitext(original_video_path)[0]
+            compressed_video_path = f"{base_path}_compressed.mkv"
             
             # Construir comando FFmpeg para archivos grandes
             ffmpeg_command = [
@@ -153,27 +154,30 @@ async def compress_video(client: Client, message: Message):
             # Monitorear progreso
             last_update = datetime.datetime.now()
             stderr_chunks = []
-            while not process.stderr.at_eof():
-                chunk = await process.stderr.read(1024)
-                if not chunk:
-                    break
-                stderr_chunks.append(chunk)
-                line = chunk.decode('utf-8', errors='replace')
-                
-                # Actualizar progreso cada 15 segundos
-                if (datetime.datetime.now() - last_update).seconds >= 15:
-                    progress = parse_progress(line, duration)
-                    if progress > 0:
-                        await status_message.edit(
-                            f"🗜️ Compresión en progreso...\n"
-                            f"▰{'▰' * (progress // 10)}{'▱' * (10 - progress // 10)}▰\n"
-                            f"⏳ **{progress}% completado**"
-                        )
-                    last_update = datetime.datetime.now()
-                
-                # Verificar cancelación
-                if active_compressions.get(message.chat.id, {}).get('cancelled'):
-                    process.terminate()
+            while True:
+                try:
+                    chunk = await process.stderr.read(1024)
+                    if not chunk:
+                        break
+                    stderr_chunks.append(chunk)
+                    line = chunk.decode('utf-8', errors='replace')
+                    
+                    # Actualizar progreso cada 15 segundos
+                    if (datetime.datetime.now() - last_update).seconds >= 15:
+                        progress_val = parse_progress(line, duration)
+                        if progress_val > 0:
+                            await status_message.edit(
+                                f"🗜️ Compresión en progreso...\n"
+                                f"▰{'▰' * (progress_val // 10)}{'▱' * (10 - progress_val // 10)}▰\n"
+                                f"⏳ **{progress_val}% completado**"
+                            )
+                        last_update = datetime.datetime.now()
+                    
+                    # Verificar cancelación
+                    if active_compressions.get(message.chat.id, {}).get('cancelled'):
+                        process.terminate()
+                        break
+                except:
                     break
             
             # Esperar finalización del proceso
@@ -205,17 +209,17 @@ async def compress_video(client: Client, message: Message):
             caption = (
                 f"🗜️ 𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞 📥\n"
                 "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
-                f" ┠ • 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
-                f" ┠ • 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
-                f" ┠ • 𝗥𝗲𝗱𝘂𝗰𝗰𝗶𝗼𝗻: {compression_ratio:.1f}%\n"
-                f" ┠ • 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗣𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {str(processing_time).split('.')[0]}\n\n"
+                f"┠ • 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
+                f"┠ • 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
+                f"┠ • 𝗥𝗲𝗱𝘂𝗰𝗰𝗶𝗼𝗻: {compression_ratio:.1f}%\n"
+                f"┠ • 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗣𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {str(processing_time).split('.')[0]}\n"
                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
                 f"⚙️ 𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮 ⚙️\n"
                 f"• 𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏: {video_settings['resolution']}\n" 
                 f"• 𝑪𝑹𝑭: {video_settings['crf']}\n"
                 f"• 𝑭𝑷𝑺: {video_settings['fps']}\n"
                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
-                f"👾 𝘾𝘦𝘢𝘥𝘰 �𝘰𝘳 @InfiniteNetworkAdmin 👾"
+                f"👾 𝘾𝘳𝘦𝘢𝘥𝘰 𝘱𝘰𝘳 @InfiniteNetworkAdmin 👾"
             )
             
             # Enviar video comprimido con timeout extendido
