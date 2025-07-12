@@ -1,8 +1,9 @@
 import os
 import datetime
 import subprocess
+import asyncio
 from pyrogram import Client, filters, types
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 # Configuración del bot
 api_id = os.getenv('API_ID')
@@ -21,6 +22,9 @@ video_settings = {
     'codec': 'libx264'
 }
 
+# Almacenar procesos activos por chat
+active_compressions = {}
+
 def update_video_settings(command: str):
     """Actualiza la configuración de compresión de video"""
     settings = command.split()
@@ -31,7 +35,7 @@ def update_video_settings(command: str):
 
 async def compress_video(client: Client, message: Message):
     """Comprime videos usando FFmpeg con configuración personalizable"""
-    status_message = None  # Variable para almacenar el mensaje de estado
+    status_message = None
     if message.reply_to_message and message.reply_to_message.video:
         try:
             # Descargar el video original
@@ -53,23 +57,57 @@ async def compress_video(client: Client, message: Message):
                 compressed_video_path
             ]
             
-            # Enviar mensaje de estado y guardar referencia
+            # Crear teclado para cancelación
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎬 Cancelar compresión", callback_data=f"cancel_{message.chat.id}")]
+            ])
+            
+            # Enviar mensaje de estado con botón de cancelación
             status_message = await message.reply(
                 f"🗜️ **Iniciando compresión**\n"
                 f"📏 Tamaño original: {original_size // (1024 * 1024)} MB\n"
                 f"⚙️ Configuración:\n"
                 f"  • Resolución: {video_settings['resolution']}\n"
                 f"  • CRF: {video_settings['crf']}\n"
-                f"  • FPS: {video_settings['fps']}"
+                f"  • FPS: {video_settings['fps']}",
+                reply_markup=keyboard
             )
+            
+            # Registrar proceso en activo
+            active_compressions[message.chat.id] = {
+                'process': None,
+                'status_message_id': status_message.id,
+                'cancelled': False
+            }
             
             # Ejecutar compresión
             start_time = datetime.datetime.now()
-            process = subprocess.run(ffmpeg_command, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(
+                ffmpeg_command,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                text=True
+            )
+            
+            # Actualizar proceso en registro
+            active_compressions[message.chat.id]['process'] = process
+            
+            # Esperar a que termine la compresión
+            while process.poll() is None:
+                await asyncio.sleep(1)
+                if active_compressions.get(message.chat.id, {}).get('cancelled'):
+                    process.terminate()
+                    break
+            
+            # Verificar si fue cancelado
+            if active_compressions.get(message.chat.id, {}).get('cancelled'):
+                await status_message.edit("❌ **Compresión cancelada por el usuario**")
+                return
             
             # Verificar resultado
             if process.returncode != 0:
-                raise Exception(f"Error en FFmpeg:\n{process.stderr[:1000]}")
+                error = process.stderr.read()[:1000] if process.stderr else "Error desconocido"
+                raise Exception(f"Error en FFmpeg (código {process.returncode}):\n{error}")
             
             # Calcular métricas
             compressed_size = os.path.getsize(compressed_video_path)
@@ -97,17 +135,19 @@ async def compress_video(client: Client, message: Message):
                 caption=caption
             )
             
-            # Eliminar mensaje de estado después de enviar el resultado
-            if status_message:
-                await status_message.delete()
+            # Eliminar mensaje de estado
+            await status_message.delete()
             
         except Exception as e:
-            # Si hay error, eliminar el mensaje de estado si existe
-            if status_message:
+            if status_message and not active_compressions.get(message.chat.id, {}).get('cancelled'):
                 await status_message.delete()
             await message.reply(f"❌ **Error en compresión**:\n`{str(e)}`")
             
         finally:
+            # Limpiar procesos activos
+            if message.chat.id in active_compressions:
+                del active_compressions[message.chat.id]
+                
             # Limpiar archivos temporales
             for path in [original_video_path, compressed_video_path]:
                 if path and os.path.exists(path):
@@ -115,6 +155,23 @@ async def compress_video(client: Client, message: Message):
                     
     else:
         await message.reply("⚠️ Responde a un video para comprimirlo")
+
+@app.on_callback_query(filters.regex(r"cancel_(\d+)"))
+async def cancel_compression(client, callback_query):
+    """Maneja la solicitud de cancelación de compresión"""
+    chat_id = int(callback_query.data.split('_')[1])
+    
+    if chat_id in active_compressions:
+        # Marcar como cancelado
+        active_compressions[chat_id]['cancelled'] = True
+        
+        # Eliminar botones
+        await callback_query.edit_message_reply_markup(reply_markup=None)
+        
+        # Confirmar cancelación al usuario
+        await callback_query.answer("Compresión cancelada", show_alert=True)
+    else:
+        await callback_query.answer("No hay compresión activa para cancelar", show_alert=True)
 
 @app.on_message(filters.command(["convert", "comprimir"]))
 async def convert_command(client, message):
