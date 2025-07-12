@@ -4,8 +4,9 @@ import subprocess
 import asyncio
 import re
 import math
-from pyrogram import Client, filters
+from pyrogram import Client, filters, types
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.errors import BadRequest
 
 # Configuración del bot
 api_id = os.getenv('API_ID')
@@ -16,10 +17,10 @@ app = Client("video_compressor_bot", api_id=api_id, api_hash=api_hash, bot_token
 
 # Configuración predeterminada para compresión de video
 video_settings = {
-    'resolution': '740x480',
-    'crf': '30',
-    'audio_bitrate': '65k',
-    'fps': '24',
+    'resolution': '854x480',
+    'crf': '32',
+    'audio_bitrate': '60k',
+    'fps': '18',
     'preset': 'veryfast',
     'codec': 'libx264'
 }
@@ -35,78 +36,146 @@ def update_video_settings(command: str):
         if key in video_settings:
             video_settings[key] = value
 
-async def get_video_duration(file_path: str) -> float:
-    """Obtiene la duración del video usando FFprobe"""
-    cmd = [
-        'ffprobe', '-v', 'error',
-        '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1',
-        file_path
-    ]
-    process = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        error = stderr.decode().strip() if stderr else "Error desconocido"
-        raise Exception(f"FFprobe error: {error}")
-    return float(stdout.decode().strip())
+async def download_progress(current, total, status_message):
+    """Actualiza el progreso de descarga"""
+    percent = current / total * 100
+    bar_length = 20
+    filled_length = int(bar_length * current // total)
+    bar = '█' * filled_length + ' ' * (bar_length - filled_length)
+    try:
+        await status_message.edit_text(
+            f"⬇️ **Descargando video...**\n"
+            f"`[{bar}] {percent:.1f}%`\n"
+            f"**Descargado:** `{human_readable_size(current)}` / `{human_readable_size(total)}`"
+        )
+    except BadRequest:
+        # Ignorar si el mensaje no cambia
+        pass
 
-def parse_progress(line: str, duration: float) -> int:
-    """Parsea el progreso de la salida de FFmpeg"""
-    time_match = re.search(r'time=(\d+:\d+:\d+\.\d+)', line)
+async def upload_progress(current, total, status_message):
+    """Actualiza el progreso de subida"""
+    percent = current / total * 100
+    bar_length = 20
+    filled_length = int(bar_length * current // total)
+    bar = '█' * filled_length + ' ' * (bar_length - filled_length)
+    try:
+        await status_message.edit_text(
+            f"⬆️ **Subiendo video comprimido...**\n"
+            f"`[{bar}] {percent:.1f}%`\n"
+            f"**Subido:** `{human_readable_size(current)}` / `{human_readable_size(total)}`"
+        )
+    except BadRequest:
+        pass
+
+def human_readable_size(size):
+    """Convierte bytes a tamaño legible"""
+    if size == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB")
+    i = int(math.floor(math.log(size, 1024)))
+    p = math.pow(1024, i)
+    s = round(size / p, 2)
+    return f"{s} {size_name[i]}"
+
+def get_ffmpeg_progress(output, duration):
+    """Extrae el progreso de la salida de FFmpeg"""
+    # Buscar el tiempo procesado actual
+    time_match = re.search(r"time=(\d+:\d+:\d+\.\d+)", output)
     if not time_match or not duration:
         return 0
     
+    # Convertir tiempo a segundos
     time_str = time_match.group(1)
     h, m, s = time_str.split(':')
-    current_sec = int(h)*3600 + int(m)*60 + float(s)
-    return min(100, math.floor((current_sec / duration) * 100))
-
-async def progress_callback(current: int, total: int, status_message: Message):
-    """Callback para mostrar progreso de descarga"""
-    if not status_message:
-        return
+    current_time = int(h) * 3600 + int(m) * 60 + float(s)
     
-    # Actualizar cada 15 segundos o 10% de progreso
-    percent = current * 100 / total
-    if percent % 10 < 0.5 or current == total:
-        try:
-            await status_message.edit(
-                f"⬇️ Descargando video...\n"
-                f"▰{'▰' * int(percent // 10)}{'▱' * (10 - int(percent // 10))}▰\n"
-                f"📥 **{percent:.1f}% completado**"
-            )
-        except:
-            pass
+    # Calcular porcentaje
+    return min(100, (current_time / duration) * 100)
+
+async def run_ffmpeg_with_progress(command, duration, status_message, chat_id):
+    """Ejecuta FFmpeg mostrando progreso"""
+    process = subprocess.Popen(
+        command,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        universal_newlines=True
+    )
+    
+    # Registrar proceso
+    active_compressions[chat_id]['process'] = process
+    
+    # Leer salida en tiempo real
+    last_update = datetime.datetime.now()
+    while True:
+        if active_compressions[chat_id].get('cancelled'):
+            process.terminate()
+            return False, "Cancelado por el usuario"
+            
+        line = process.stderr.readline()
+        if not line:
+            break
+            
+        # Actualizar progreso cada 1 segundo
+        if (datetime.datetime.now() - last_update).seconds >= 1:
+            progress = get_ffmpeg_progress(line, duration)
+            if progress > 0:
+                bar_length = 20
+                filled_length = int(bar_length * progress // 100)
+                bar = '█' * filled_length + ' ' * (bar_length - filled_length)
+                try:
+                    await status_message.edit_text(
+                        f"🔧 **Comprimiendo video...**\n"
+                        f"`[{bar}] {progress:.1f}%`\n"
+                        f"⚙️ Usando: `{video_settings['preset']}` | CRF `{video_settings['crf']}`"
+                    )
+                    last_update = datetime.datetime.now()
+                except BadRequest:
+                    pass
+    
+    # Esperar a que termine el proceso
+    process.wait()
+    return process.returncode == 0, process.stderr.read()
+
+def get_video_duration(file_path):
+    """Obtiene la duración del video usando FFprobe"""
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 
+             'format=duration', '-of', 
+             'default=noprint_wrappers=1:nokey=1', file_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return float(result.stdout.strip())
+    except:
+        return 0
 
 async def compress_video(client: Client, message: Message):
-    """Comprime videos usando FFmpeg con configuración personalizable"""
+    """Comprime videos usando FFmpeg con seguimiento de progreso"""
     status_message = None
     if message.reply_to_message and message.reply_to_message.video:
         try:
-            # Crear mensaje inicial de estado
-            status_message = await message.reply("⬇️ Iniciando descarga del video...")
+            # Mensaje de inicio
+            download_msg = await message.reply("⬇️ **Iniciando descarga...**")
             
-            # Descargar el video original con timeout extendido (CORRECCIÓN APLICADA)
+            # Descargar el video original con seguimiento
             original_video_path = await client.download_media(
-    message.reply_to_message.video,
-    progress=lambda c, t: asyncio.create_task(progress_callback(c, t, status_message))
-)
-
-            
+                message.reply_to_message.video,
+                progress=download_progress,
+                progress_args=(download_msg,)
+            )
             original_size = os.path.getsize(original_video_path)
             
-            # Obtener duración para el progreso
-            duration = await get_video_duration(original_video_path)
-            
             # Preparar ruta para video comprimido
-            base_path = os.path.splitext(original_video_path)[0]
-            compressed_video_path = f"{base_path}_compressed.mkv"
+            compressed_video_path = f"{os.path.splitext(original_video_path)[0]}_compressed.mkv"
             
-            # Construir comando FFmpeg para archivos grandes
+            # Obtener duración para el progreso
+            video_duration = get_video_duration(original_video_path)
+            
+            # Construir comando FFmpeg
             ffmpeg_command = [
                 'ffmpeg', '-y', '-i', original_video_path,
                 '-s', video_settings['resolution'],
@@ -115,7 +184,8 @@ async def compress_video(client: Client, message: Message):
                 '-r', video_settings['fps'],
                 '-preset', video_settings['preset'],
                 '-c:v', video_settings['codec'],
-                '-max_muxing_queue_size', '9999',  # Previene errores con archivos grandes
+                '-progress', '-',  # Habilitar salida de progreso
+                '-nostats',        # Reducir salida innecesaria
                 compressed_video_path
             ]
             
@@ -124,14 +194,11 @@ async def compress_video(client: Client, message: Message):
                 [InlineKeyboardButton("❌ Cancelar compresión ❌", callback_data=f"cancel_{message.chat.id}")]
             ])
             
-            # Actualizar mensaje de estado con botón de cancelación
-            await status_message.edit(
-                f"🗜️ Comprimiendo video 📹...\n\n"
-                f"📏 Tamaño original: {original_size // (1024 * 1024)} MB\n"
-                f"⚙️ Configuración:\n"
-                f"  • Resolución: {video_settings['resolution']}\n"
-                f"  • CRF: {video_settings['crf']}\n"
-                f"  • FPS: {video_settings['fps']}",
+            # Enviar mensaje de estado con botón de cancelación
+            status_message = await message.reply(
+                "🔧 **Preparando compresión...**\n"
+                f"📏 Tamaño original: {human_readable_size(original_size)}\n"
+                f"⚙️ Configuración: {video_settings['resolution']} @ {video_settings['fps']}fps",
                 reply_markup=keyboard
             )
             
@@ -142,94 +209,54 @@ async def compress_video(client: Client, message: Message):
                 'cancelled': False
             }
             
-            # Ejecutar compresión asíncrona
+            # Ejecutar compresión con seguimiento
             start_time = datetime.datetime.now()
-            process = await asyncio.create_subprocess_exec(
-                *ffmpeg_command,
-                stderr=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.DEVNULL
+            success, error = await run_ffmpeg_with_progress(
+                ffmpeg_command, 
+                video_duration,
+                status_message,
+                message.chat.id
             )
             
-            # Actualizar proceso en registro
-            active_compressions[message.chat.id]['process'] = process
-            
-            # Monitorear progreso
-            last_update = datetime.datetime.now()
-            stderr_chunks = []
-            while True:
-                try:
-                    chunk = await process.stderr.read(1024)
-                    if not chunk:
-                        break
-                    stderr_chunks.append(chunk)
-                    line = chunk.decode('utf-8', errors='replace')
-                    
-                    # Actualizar progreso cada 15 segundos
-                    if (datetime.datetime.now() - last_update).seconds >= 15:
-                        progress_val = parse_progress(line, duration)
-                        if progress_val > 0:
-                            await status_message.edit(
-                                f"🗜️ Compresión en progreso...\n"
-                                f"▰{'▰' * (progress_val // 10)}{'▱' * (10 - progress_val // 10)}▰\n"
-                                f"⏳ **{progress_val}% completado**"
-                            )
-                        last_update = datetime.datetime.now()
-                    
-                    # Verificar cancelación
-                    if active_compressions.get(message.chat.id, {}).get('cancelled'):
-                        process.terminate()
-                        break
-                except:
-                    break
-            
-            # Esperar finalización del proceso
-            return_code = await process.wait()
-            
-            # Verificar cancelación
-            if active_compressions.get(message.chat.id, {}).get('cancelled'):
+            # Verificar si fue cancelado
+            if active_compressions[message.chat.id].get('cancelled'):
                 await status_message.edit("❌ **Compresión cancelada** ❌")
                 return
             
             # Verificar resultado
-            if return_code != 0:
-                error = b''.join(stderr_chunks).decode('utf-8', errors='replace')[:1000]
-                raise Exception(f"Error en FFmpeg (código {return_code}):\n{error}")
+            if not success:
+                raise Exception(f"Error en FFmpeg:\n{error[:1000] if error else 'Error desconocido'}")
             
             # Calcular métricas
             compressed_size = os.path.getsize(compressed_video_path)
             processing_time = datetime.datetime.now() - start_time
             compression_ratio = (1 - compressed_size/original_size) * 100
             
-            # Verificar tamaño máximo (2GB = 2147483648 bytes)
-            MAX_SIZE = 2147483648
-            if compressed_size > MAX_SIZE:
-                await status_message.edit("❌ **Video demasiado grande después de compresión** ❌\n"
-                                         f"Tamaño resultante: {compressed_size // (1024 * 1024)} MB")
-                return
-            
             # Crear descripción con resultados
             caption = (
-                f"🗜️ 𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞 📥\n"
-                "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
-                f"┠ • 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
-                f"┠ • 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
-                f"┠ • 𝗥𝗲𝗱𝘂𝗰𝗰𝗶𝗼𝗻: {compression_ratio:.1f}%\n"
-                f"┠ • 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗣𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {str(processing_time).split('.')[0]}\n"
-                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
-                f"⚙️ 𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮 ⚙️\n"
-                f"• 𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏: {video_settings['resolution']}\n" 
-                f"• 𝑪𝑹𝑭: {video_settings['crf']}\n"
-                f"• 𝑭𝑷𝑺: {video_settings['fps']}\n"
-                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
-                f"👾 𝘾𝘳𝘦𝘢𝘥𝘰 𝘱𝘰𝘳 @InfiniteNetworkAdmin 👾"
+                f"🎬 **Video Comprimido Correctamente**\n"
+                "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n"
+                f"┠ 📦 **Tamaño original:** {human_readable_size(original_size)}\n"
+                f"┠ 📥 **Tamaño comprimido:** {human_readable_size(compressed_size)}\n"
+                f"┠ 💯 **Reducción:** {compression_ratio:.1f}%\n"
+                f"┠ ⏱️ **Tiempo procesamiento:** {str(processing_time).split('.')[0]}\n\n"
+                "⚙️ **Configuración usada**\n"
+                f"┠ 🖼️ Resolución: {video_settings['resolution']}\n"
+                f"┠ 🎚️ CRF: {video_settings['crf']}\n"
+                f"┠ 📺 FPS: {video_settings['fps']}\n"
+                "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
             )
             
-            # Enviar video comprimido con timeout extendido
+            # Enviar video comprimido con seguimiento
+            upload_msg = await message.reply("⬆️ **Preparando subida...**")
             await client.send_video(
                 chat_id=message.chat.id,
                 video=compressed_video_path,
                 caption=caption,
+                progress=upload_progress,
+                progress_args=(upload_msg,)
             )
+            await upload_msg.delete()
             
             # Eliminar mensaje de estado
             await status_message.delete()
@@ -247,67 +274,13 @@ async def compress_video(client: Client, message: Message):
             # Limpiar archivos temporales
             for path in [original_video_path, compressed_video_path]:
                 if path and os.path.exists(path):
-                    try:
-                        os.remove(path)
-                    except:
-                        pass
+                    os.remove(path)
                     
     else:
         await message.reply("⚠️ Responde a un video para comprimirlo")
 
-@app.on_callback_query(filters.regex(r"cancel_(\d+)"))
-async def cancel_compression(client, callback_query):
-    """Maneja la solicitud de cancelación de compresión"""
-    chat_id = int(callback_query.data.split('_')[1])
-    
-    if chat_id in active_compressions:
-        # Marcar como cancelado
-        active_compressions[chat_id]['cancelled'] = True
-        
-        # Terminar proceso activo
-        if active_compressions[chat_id]['process']:
-            try:
-                active_compressions[chat_id]['process'].terminate()
-            except:
-                pass
-        
-        # Eliminar botones
-        await callback_query.edit_message_reply_markup(reply_markup=None)
-        
-        # Confirmar cancelación al usuario
-        await callback_query.answer("Compresión cancelada", show_alert=True)
-    else:
-        await callback_query.answer("No hay compresión activa para cancelar", show_alert=True)
-
-@app.on_message(filters.command(["convert", "comprimir"]))
-async def convert_command(client, message):
-    """Maneja el comando de compresión de video"""
-    await compress_video(client, message)
-
-@app.on_message(filters.command(["calidad", "config"]))
-async def quality_command(client, message):
-    """Configura los parámetros de compresión"""
-    try:
-        update_video_settings(message.text.split(maxsplit=1)[1])
-        config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
-        await message.reply(
-            f"⚙️ **Configuración actualizada** ⚙️\n\n{config_text}\n\n"
-            f"🗜️ Responde a un video con /convert para comprimirlo 🛠️"
-        )
-    except Exception as e:
-        await message.reply(f"❌ Error en configuración:\n`{str(e)}`")
-
-@app.on_message(filters.command(["start", "ayuda"]))
-async def start_command(client, message):
-    """Muestra ayuda y parámetros actuales"""
-    config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
-    await message.reply(
-        "🗜️ **Compress Bot** 🎬\n\n"
-        "⚙️ **Configuración Actual** 📝\n"
-        f"{config_text}\n\n"
-        f"👾 **𝘊𝘳𝘦𝘢𝘥𝘰 𝘱𝘰𝘳 @InfiniteNetworkAdmin** 👾\n"
-    )
+# ... (El resto del código permanece igual: cancel_compression, convert_command, quality_command, start_command)
 
 if __name__ == "__main__":
-    print("✅ Bot de compresión de videos optimizado para archivos grandes iniciado")
+    print("✅ Bot de compresión de videos iniciado")
     app.run()
