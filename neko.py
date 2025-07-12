@@ -14,10 +14,10 @@ app = Client("video_compressor_bot", api_id=api_id, api_hash=api_hash, bot_token
 
 # Configuración predeterminada para compresión de video
 video_settings = {
-    'resolution': '854x480',
-    'crf': '32',
-    'audio_bitrate': '60k',
-    'fps': '18',
+    'resolution': '740x480',
+    'crf': '30',
+    'audio_bitrate': '65k',
+    'fps': '24',
     'preset': 'veryfast',
     'codec': 'libx264'
 }
@@ -187,8 +187,8 @@ async def quality_command(client, message):
         update_video_settings(message.text.split(maxsplit=1)[1])
         config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
         await message.reply(
-            f"⚙️ **Configuración actualizada**\n\n{config_text}\n\n"
-            f"Ahora responde a un video con /convert"
+            f"⚙️ **Configuración actualizada** ⚙️\n\n{config_text}\n\n"
+            f"🗜️Responde a un video con /convert para comprimirlo🛠️"
         )
     except Exception as e:
         await message.reply(f"❌ Error en configuración:\n`{str(e)}`")
@@ -198,9 +198,10 @@ async def start_command(client, message):
     """Muestra ayuda y parámetros actuales"""
     config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
     await message.reply(
-        "🎥 **Video Compressor Bot**\n\n"
-        "**Parámetros actuales:**\n"
+        "🗜️ **Compress Bot** 🎬\n\n"
+        "⚙️ **Configuración Actual** 📝\n"
         f"{config_text}\n\n"
+        f"👾 **𝘊𝘳𝘦𝘢𝘥𝘰 𝘱𝘰𝘳 @InfiniteNetworkAdmin** 👾\n"
     )
 
 if __name__ == "__main__":
