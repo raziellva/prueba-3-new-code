@@ -29,8 +29,27 @@ def update_video_settings(command: str):
         if key in video_settings:
             video_settings[key] = value
 
+def estimate_compression_ratio(crf: str) -> int:
+    """Estima el porcentaje de compresión basado en el valor CRF"""
+    try:
+        crf_value = int(crf)
+        # Mapeo de valores CRF a porcentajes estimados
+        if crf_value < 23:
+            return 30
+        elif 23 <= crf_value < 27:
+            return 50
+        elif 27 <= crf_value < 31:
+            return 65
+        elif 31 <= crf_value < 35:
+            return 75
+        else:
+            return 85
+    except ValueError:
+        return 60  # Valor predeterminado
+
 async def compress_video(client: Client, message: Message):
     """Comprime videos usando FFmpeg con configuración personalizable"""
+    status_message = None  # Para almacenar el mensaje de estado
     if message.reply_to_message and message.reply_to_message.video:
         try:
             # Descargar el video original
@@ -52,9 +71,12 @@ async def compress_video(client: Client, message: Message):
                 compressed_video_path
             ]
             
+            # Calcular porcentaje estimado
+            estimated_ratio = estimate_compression_ratio(video_settings['crf'])
+            
             # Informar al usuario
-            await message.reply(
-                f"🗜️ **Iniciando compresión**\n"
+            status_message = await message.reply(
+                f"🗜️ **Iniciando compresión** - Estimado: ~{estimated_ratio}%\n"
                 f"📏 Tamaño original: {original_size // (1024 * 1024)} MB\n"
                 f"⚙️ Configuración:\n"
                 f"  • Resolución: {video_settings['resolution']}\n"
@@ -89,15 +111,25 @@ async def compress_video(client: Client, message: Message):
                 f"  • Preset: {video_settings['preset']}"
             )
             
-            # Enviar video comprimido
+            # Enviar video comprimido y eliminar mensaje de estado
             await client.send_video(
                 chat_id=message.chat.id,
                 video=compressed_video_path,
                 caption=caption
             )
             
+            # Eliminar mensaje de estado si existe
+            if status_message:
+                await status_message.delete()
+            
         except Exception as e:
             await message.reply(f"❌ **Error en compresión**:\n`{str(e)}`")
+            # Intentar eliminar mensaje de estado si existe
+            if status_message:
+                try:
+                    await status_message.delete()
+                except:
+                    pass
             
         finally:
             # Limpiar archivos temporales
