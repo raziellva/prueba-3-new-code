@@ -65,15 +65,36 @@ def parse_progress(line: str, duration: float) -> int:
     current_sec = int(h)*3600 + int(m)*60 + float(s)
     return min(100, math.floor((current_sec / duration) * 100))
 
+async def progress_callback(current: int, total: int, status_message: Message):
+    """Callback para mostrar progreso de descarga"""
+    if not status_message:
+        return
+    
+    # Actualizar cada 15 segundos o 10% de progreso
+    percent = current * 100 / total
+    if percent % 10 < 0.5 or current == total:
+        try:
+            await status_message.edit(
+                f"⬇️ Descargando video...\n"
+                f"▰{'▰' * int(percent // 10)}{'▱' * (10 - int(percent // 10))}▰\n"
+                f"📥 **{percent:.1f}% completado**"
+            )
+        except:
+            pass
+
 async def compress_video(client: Client, message: Message):
     """Comprime videos usando FFmpeg con configuración personalizable"""
     status_message = None
     if message.reply_to_message and message.reply_to_message.video:
         try:
+            # Crear mensaje inicial de estado
+            status_message = await message.reply("⬇️ Iniciando descarga del video...")
+            
             # Descargar el video original con timeout extendido
             original_video_path = await client.download_media(
                 message.reply_to_message.video,
                 progress=lambda c, t: asyncio.create_task(progress_callback(c, t, status_message))
+            
             original_size = os.path.getsize(original_video_path)
             
             # Obtener duración para el progreso
@@ -100,9 +121,9 @@ async def compress_video(client: Client, message: Message):
                 [InlineKeyboardButton("❌ Cancelar compresión ❌", callback_data=f"cancel_{message.chat.id}")]
             ])
             
-            # Enviar mensaje de estado con botón de cancelación
-            status_message = await message.reply(
-                f"🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹...\n\n"
+            # Actualizar mensaje de estado con botón de cancelación
+            await status_message.edit(
+                f"🗜️ Comprimiendo video 📹...\n\n"
                 f"📏 Tamaño original: {original_size // (1024 * 1024)} MB\n"
                 f"⚙️ Configuración:\n"
                 f"  • Resolución: {video_settings['resolution']}\n"
@@ -182,18 +203,19 @@ async def compress_video(client: Client, message: Message):
             
             # Crear descripción con resultados
             caption = (
-                f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
-                 "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
-                f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
-                f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
-                f" ┠• 𝗥𝗲𝗱𝘂𝗰𝗰𝗶𝗼𝗻: {compression_ratio:.1f}%\n"
-                f" ┠• 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗣𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {str(processing_time).split('.')[0]}\n\n"
-                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
-                f"⚙️𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮⚙️\n"
-                f"•𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏:  {video_settings['resolution']}\n" 
-                f"•𝑪𝑹𝑭: {video_settings['crf']}\n"
-                f"•𝑭𝑷𝑺: {video_settings['fps']}\n"
+                f"🗜️ 𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞 📥\n"
+                "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
+                f" ┠ • 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
+                f" ┠ • 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
+                f" ┠ • 𝗥𝗲𝗱𝘂𝗰𝗰𝗶𝗼𝗻: {compression_ratio:.1f}%\n"
+                f" ┠ • 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗣𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {str(processing_time).split('.')[0]}\n\n"
                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+                f"⚙️ 𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮 ⚙️\n"
+                f"• 𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏: {video_settings['resolution']}\n" 
+                f"• 𝑪𝑹𝑭: {video_settings['crf']}\n"
+                f"• 𝑭𝑷𝑺: {video_settings['fps']}\n"
+                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+                f"👾 𝘾𝘦𝘢𝘥𝘰 �𝘰𝘳 @InfiniteNetworkAdmin 👾"
             )
             
             # Enviar video comprimido con timeout extendido
@@ -220,27 +242,13 @@ async def compress_video(client: Client, message: Message):
             # Limpiar archivos temporales
             for path in [original_video_path, compressed_video_path]:
                 if path and os.path.exists(path):
-                    os.remove(path)
+                    try:
+                        os.remove(path)
+                    except:
+                        pass
                     
     else:
         await message.reply("⚠️ Responde a un video para comprimirlo")
-
-async def progress_callback(current: int, total: int, status_message: Message):
-    """Callback para mostrar progreso de descarga"""
-    if not status_message:
-        return
-    
-    # Actualizar cada 15 segundos o 10% de progreso
-    percent = current * 100 / total
-    if percent % 10 < 0.5 or current == total:
-        try:
-            await status_message.edit(
-                f"⬇️ Descargando video...\n"
-                f"▰{'▰' * int(percent // 10)}{'▱' * (10 - int(percent // 10))}▰\n"
-                f"📥 **{percent:.1f}% completado**"
-            )
-        except:
-            pass
 
 @app.on_callback_query(filters.regex(r"cancel_(\d+)"))
 async def cancel_compression(client, callback_query):
@@ -253,7 +261,10 @@ async def cancel_compression(client, callback_query):
         
         # Terminar proceso activo
         if active_compressions[chat_id]['process']:
-            active_compressions[chat_id]['process'].terminate()
+            try:
+                active_compressions[chat_id]['process'].terminate()
+            except:
+                pass
         
         # Eliminar botones
         await callback_query.edit_message_reply_markup(reply_markup=None)
@@ -263,7 +274,34 @@ async def cancel_compression(client, callback_query):
     else:
         await callback_query.answer("No hay compresión activa para cancelar", show_alert=True)
 
-# ... (resto de handlers sin cambios)
+@app.on_message(filters.command(["convert", "comprimir"]))
+async def convert_command(client, message):
+    """Maneja el comando de compresión de video"""
+    await compress_video(client, message)
+
+@app.on_message(filters.command(["calidad", "config"]))
+async def quality_command(client, message):
+    """Configura los parámetros de compresión"""
+    try:
+        update_video_settings(message.text.split(maxsplit=1)[1])
+        config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
+        await message.reply(
+            f"⚙️ **Configuración actualizada** ⚙️\n\n{config_text}\n\n"
+            f"🗜️ Responde a un video con /convert para comprimirlo 🛠️"
+        )
+    except Exception as e:
+        await message.reply(f"❌ Error en configuración:\n`{str(e)}`")
+
+@app.on_message(filters.command(["start", "ayuda"]))
+async def start_command(client, message):
+    """Muestra ayuda y parámetros actuales"""
+    config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
+    await message.reply(
+        "🗜️ **Compress Bot** 🎬\n\n"
+        "⚙️ **Configuración Actual** 📝\n"
+        f"{config_text}\n\n"
+        f"👾 **𝘊𝘳𝘦𝘢𝘥𝘰 𝘱𝘰𝘳 @InfiniteNetworkAdmin** 👾\n"
+    )
 
 if __name__ == "__main__":
     print("✅ Bot de compresión de videos optimizado para archivos grandes iniciado")
