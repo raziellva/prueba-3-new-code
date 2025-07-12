@@ -92,8 +92,10 @@ async def compress_video(client: Client, message: Message):
             
             # Descargar el video original con timeout extendido (CORRECCIÓN APLICADA)
             original_video_path = await client.download_media(
-                message.reply_to_message.video,
-                progress=lambda c, t: asyncio.create_task(progress_callback(c, t, status_message))
+    message.reply_to_message.video,
+    progress=lambda c, t: asyncio.create_task(progress_callback(c, t, status_message))
+)
+
             
             original_size = os.path.getsize(original_video_path)
             
