@@ -59,12 +59,12 @@ async def compress_video(client: Client, message: Message):
             
             # Crear teclado para cancelación
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("❌ Cancelar compresión❌", callback_data=f"cancel_{message.chat.id}")]
+                [InlineKeyboardButton("🎬 Cancelar compresión", callback_data=f"cancel_{message.chat.id}")]
             ])
             
             # Enviar mensaje de estado con botón de cancelación
             status_message = await message.reply(
-                f"🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹\n"
+                f"🗜️ **Iniciando compresión**\n"
                 f"📏 Tamaño original: {original_size // (1024 * 1024)} MB\n"
                 f"⚙️ Configuración:\n"
                 f"  • Resolución: {video_settings['resolution']}\n"
@@ -101,7 +101,7 @@ async def compress_video(client: Client, message: Message):
             
             # Verificar si fue cancelado
             if active_compressions.get(message.chat.id, {}).get('cancelled'):
-                await status_message.edit("❌ **Compresión cancelada❌**")
+                await status_message.edit("❌ **Compresión cancelada por el usuario**")
                 return
             
             # Verificar resultado
