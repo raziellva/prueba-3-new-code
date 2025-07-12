@@ -116,16 +116,17 @@ async def compress_video(client: Client, message: Message):
             
             # Crear descripción con resultados
             caption = (
-                f"✅ **Video Comprimido**\n\n"
-                f"▫️ Tamaño original: {original_size // (1024 * 1024)} MB\n"
-                f"▫️ Tamaño final: {compressed_size // (1024 * 1024)} MB\n"
-                f"▫️ Reducción: {compression_ratio:.1f}%\n"
-                f"▫️ Tiempo procesamiento: {str(processing_time).split('.')[0]}\n\n"
-                f"⚙️ **Configuración usada**\n"
-                f"  • Resolución: {video_settings['resolution']}\n"
-                f"  • CRF: {video_settings['crf']}\n"
-                f"  • FPS: {video_settings['fps']}\n"
-                f"  • Preset: {video_settings['preset']}"
+                f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
+                 "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
+                f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
+                f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
+                f" ┖• 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗽𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {processing_time_str}\n"
+                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+                f"⚙️𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮⚙️\n"
+                f"•𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏:  {video_settings['resolution']}\n" 
+                f"•𝑪𝑹𝑭: {video_settings['crf']}\n"
+                f"•𝑭𝑷𝑺: {video_settings['fps']}\n"
+                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
             )
             
             # Enviar video comprimido
