@@ -362,8 +362,8 @@ async def show_help(client, message):
 # Manejo de variables de entorno
 BOT_IS_PUBLIC = os.getenv("BOT_IS_PUBLIC", "false").lower() == "true"
 
-# Manejadores de mensajes
-@app.on_message(filters.video & ~filters.command)
+# Manejadores de mensajes (CORREGIDOS)
+@app.on_message(filters.video & ~filters.command())
 async def video_handler(client, message: Message):
     """Maneja automáticamente los videos enviados"""
     await auto_compress_video(client, message)
