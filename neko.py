@@ -279,7 +279,33 @@ async def compress_video(client: Client, message: Message):
     else:
         await message.reply("⚠️ Responde a un video para comprimirlo")
 
-# ... (El resto del código permanece igual: cancel_compression, convert_command, quality_command, start_command)
+@app.on_message(filters.command(["convert", "comprimir"]))
+async def convert_command(client, message):
+    """Maneja el comando de compresión de video"""
+    await compress_video(client, message)
+
+@app.on_message(filters.command(["calidad", "config"]))
+async def quality_command(client, message):
+    """Configura los parámetros de compresión"""
+    try:
+        update_video_settings(message.text.split(maxsplit=1)[1])
+        config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
+        await message.reply(
+            f"⚙️ **Configuración actualizada**\n\n{config_text}\n\n"
+            f"Ahora responde a un video con /convert"
+        )
+    except Exception as e:
+        await message.reply(f"❌ Error en configuración:\n`{str(e)}`")
+
+@app.on_message(filters.command(["start", "ayuda"]))
+async def start_command(client, message):
+    """Muestra ayuda y parámetros actuales"""
+    config_text = "\n".join([f"• **{k}**: `{v}`" for k, v in video_settings.items()])
+    await message.reply(
+        "🎥 **Video Compressor Bot**\n\n"
+        "**Parámetros actuales:**\n"
+        f"{config_text}\n\n"
+    )
 
 if __name__ == "__main__":
     print("✅ Bot de compresión de videos iniciado")
