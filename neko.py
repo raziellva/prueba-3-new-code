@@ -11,6 +11,12 @@ import datetime
 import subprocess
 from pyrogram.types import Message
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Filtro para excluir comandos que comienzan con "/"
+exclude_commands = filters.create(lambda _, __, m: not (m.text and m.text.startswith("/")))
 
 # Configuración del bot
 api_id = os.getenv('API_ID')
@@ -363,9 +369,8 @@ async def show_help(client, message):
 BOT_IS_PUBLIC = os.getenv("BOT_IS_PUBLIC", "false").lower() == "true"
 
 # Manejadores de mensajes (CORREGIDOS)
-@app.on_message(filters.video & ~filters.command())
+@app.on_message(filters.video & exclude_commands)
 async def video_handler(client, message: Message):
-    """Maneja automáticamente los videos enviados"""
     await auto_compress_video(client, message)
 
 @app.on_message(filters.command("start"))
