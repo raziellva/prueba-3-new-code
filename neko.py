@@ -5,12 +5,13 @@ import re
 import time
 import math
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import Message
 from pyrogram.errors import BadRequest
 
 # — Configuración inicial — 
 def parse_ids(envvar):
-    return [int(x) for x in os.getenv(envvar, "").split(",") if x.isdigit()]
+    ids = os.getenv(envvar, "").split(",")
+    return [int(x.strip()) for x in ids if x.strip().isdigit()]
 
 api_id     = int(os.getenv("API_ID", 0))
 api_hash   = os.getenv("API_HASH", "")
@@ -38,10 +39,10 @@ video_settings = {
 def update_video_settings(cmd: str):
     for setting in cmd.split():
         if '=' in setting:
-            key, value = setting.split("=")
+            key, value = setting.split("=", 1)
             if key in video_settings:
                 if key == "auto_compress":
-                    video_settings[key] = value.lower() == "true"
+                    video_settings[key] = value.lower() in ["true", "on", "si", "yes", "1"]
                 else:
                     video_settings[key] = value
 
@@ -71,21 +72,36 @@ def parse_duration(duration_str):
 # — Lógica de compresión de video — 
 async def compress_video(client: Client, message: Message, auto_mode=False):
     try:
-        # Manejar mensaje de estado
-        status_msg = await message.reply("📥 Descargando video...")
+        # Determinar el mensaje de origen
+        if auto_mode:
+            # En modo automático, el mensaje es el video mismo
+            video_message = message
+        else:
+            # En modo manual, el video está en el mensaje respondido
+            video_message = message.reply_to_message
+            
+            # Manejar mensaje de estado
+            status_msg = await message.reply("⏳ Iniciando compresión...")
         
         # Descargar video
+        if not auto_mode:
+            await status_msg.edit("📥 Descargando video...")
+        
         input_path = await client.download_media(
-            message.reply_to_message.video if auto_mode else message.reply_to_message,
+            video_message.video,
             progress=download_progress,
-            progress_args=(status_msg, "📥 Descargando...")
+            progress_args=(status_msg if not auto_mode else None, "📥 Descargando...")
         )
         
         orig_size = os.path.getsize(input_path)
         orig_mb = orig_size // (1024 * 1024)
         
         # Actualizar estado
-        await status_msg.edit(f"📥 Descargado: {orig_mb} MB\n🗜️ Iniciando compresión...")
+        if not auto_mode:
+            await status_msg.edit(f"📥 Descargado: {orig_mb} MB\n🗜️ Iniciando compresión...")
+        else:
+            # En modo automático, enviar mensaje de estado
+            status_msg = await message.reply(f"🎥 Video detectado ({orig_mb} MB). Comprimiendo...")
         
         # Preparar ruta de salida
         base = os.path.splitext(input_path)[0]
@@ -133,15 +149,22 @@ async def compress_video(client: Client, message: Message, auto_mode=False):
                 progress = (current_time / duration) * 100
                 
                 # Actualizar cada 5 segundos o si el progreso cambió significativamente
-                if time.time() - last_update > 5 or progress == 100:
+                if time.time() - last_update > 5 or progress >= 100:
                     elapsed = time.time() - start_time
                     progress_bar = create_progress_bar(progress)
-                    await status_msg.edit(
-                        f"🗜️ Comprimiendo video...\n"
-                        f"{progress_bar} {progress:.1f}%\n"
-                        f"⏱ Tiempo transcurrido: {int(elapsed)}s\n"
-                        f"📦 Tamaño original: {orig_mb} MB"
-                    )
+                    if not auto_mode:
+                        await status_msg.edit(
+                            f"🗜️ Comprimiendo video...\n"
+                            f"{progress_bar} {progress:.1f}%\n"
+                            f"⏱ Tiempo transcurrido: {int(elapsed)}s\n"
+                            f"📦 Tamaño original: {orig_mb} MB"
+                        )
+                    else:
+                        await status_msg.edit(
+                            f"🎥 Comprimiendo video...\n"
+                            f"{progress_bar} {progress:.1f}%\n"
+                            f"⏱ {int(elapsed)}s | 📦 {orig_mb} MB"
+                        )
                     last_update = time.time()
         
         # Esperar finalización
@@ -173,23 +196,29 @@ async def compress_video(client: Client, message: Message, auto_mode=False):
         )
         
         # Enviar video con progreso de subida
-        await status_msg.edit("📤 Subiendo video comprimido...")
+        if not auto_mode:
+            await status_msg.edit("📤 Subiendo video comprimido...")
+        else:
+            await status_msg.edit("📤 Subiendo video comprimido...")
+        
         await client.send_video(
             chat_id=message.chat.id,
             video=output_path,
             caption=caption,
             progress=upload_progress,
             progress_args=(status_msg, "📤 Subiendo..."),
-            reply_to_message_id=message.message_id if auto_mode else message.reply_to_message.message_id
+            reply_to_message_id=message.message_id if auto_mode else video_message.message_id
         )
         
         # Limpiar mensajes temporales
         await status_msg.delete()
         
     except BadRequest as e:
-        await message.reply(f"❌ Error al enviar video: {str(e)}")
+        error_msg = f"❌ Error al enviar video: {str(e)}"
+        await (message if auto_mode else status_msg).reply(error_msg)
     except Exception as e:
-        await message.reply(f"❌ Error durante la compresión: {str(e)}")
+        error_msg = f"❌ Error durante la compresión: {str(e)}"
+        await (message if auto_mode else status_msg).reply(error_msg)
     finally:
         # Limpieza
         await safe_remove(input_path)
@@ -197,6 +226,9 @@ async def compress_video(client: Client, message: Message, auto_mode=False):
 
 # — Callbacks de progreso —
 async def download_progress(current, total, status_msg, text):
+    if status_msg is None:
+        return
+        
     percentage = (current / total) * 100
     progress_bar = create_progress_bar(percentage)
     mb_current = current // (1024 * 1024)
@@ -233,18 +265,8 @@ async def auto_compress(client: Client, message: Message):
         message.from_user.id not in ban_users and
         message.video.file_size > 5 * 1024 * 1024):  # Solo videos >5MB
         
-        # Notificar al usuario
-        notice = await message.reply(
-            "🎥 Video detectado. Comprimiendo automáticamente...\n"
-            "ℹ️ Para desactivar: /auto false",
-            reply_to_message_id=message.message_id
-        )
-        
         # Comprimir
-        await compress_video(client, notice, auto_mode=True)
-        
-        # Eliminar notificación
-        await notice.delete()
+        await compress_video(client, message, auto_mode=True)
 
 # — Manejo de comandos — 
 @app.on_message(filters.text)
@@ -282,8 +304,8 @@ async def command_handler(client: Client, message: Message):
                     f"Preset: `{video_settings['preset']}`\n"
                     f"Auto: `{'✅' if video_settings['auto_compress'] else '❌'}`"
                 )
-            except Exception:
-                await message.reply("❌ Formato inválido. Usa: `/calidad key=value`")
+            except Exception as e:
+                await message.reply(f"❌ Error: {str(e)}")
         else:
             await message.reply("ℹ️ Uso: `/calidad key=value`\nEj: `/calidad resolution=1280x720 crf=28`")
     
@@ -291,10 +313,10 @@ async def command_handler(client: Client, message: Message):
         parts = text.split()
         if len(parts) > 1:
             state = parts[1].lower()
-            if state in ["true", "on", "si", "yes"]:
+            if state in ["true", "on", "si", "yes", "1"]:
                 video_settings["auto_compress"] = True
                 await message.reply("✅ **Compresión automática ACTIVADA**")
-            elif state in ["false", "off", "no"]:
+            elif state in ["false", "off", "no", "0"]:
                 video_settings["auto_compress"] = False
                 await message.reply("❌ **Compresión automática DESACTIVADA**")
             else:
