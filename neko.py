@@ -46,7 +46,7 @@ def update_video_settings(command: str):
 
 async def compress_video(client, message: Message):  # Cambiar a async
     if message.reply_to_message and message.reply_to_message.video:
-        msg = await app.send_message(chat_id=message.chat.id, text="🗜️Descargando Video 📹...")
+        msg = await app.send_message(chat_id=message.chat.id, text="📥 𝗗𝗲𝘀𝗰𝗮𝗿𝗴𝗮𝗻𝗱𝗼 𝗩𝗶𝗱𝗲𝗼 🎬...")
         original_video_path = await app.download_media(message.reply_to_message.video)
         original_size = os.path.getsize(original_video_path)
         await msg.edit(f"𝐈𝐧𝐢𝐜𝐢𝐚𝐧𝐝𝐨 𝐂𝐨𝐦𝐩𝐫𝐞𝐬𝐢𝐨𝐧..\n"
@@ -62,7 +62,7 @@ async def compress_video(client, message: Message):  # Cambiar a async
         try:
             start_time = datetime.datetime.now()
             process = subprocess.Popen(ffmpeg_command, stderr=subprocess.PIPE, text=True)
-            await msg.edit("🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹...")
+            await msg.edit("🗜️𝗖𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗲𝗻𝗱𝗼 𝗩𝗶𝗱𝗲𝗼 🎬...")
             while True:
                 output = process.stderr.readline()
                 if output == '' and process.poll() is not None:
@@ -122,11 +122,12 @@ async def compress_video(client, message: Message):  # Cambiar a async
             # Descripción para el video comprimido
             await msg.delete(True)
             description = (
-                f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
+                f"📤 𝗩𝗶𝗱𝗲𝗼 𝗖𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼 𝗖𝗼𝗿𝗿𝗲𝗰𝘁𝗮𝗺𝗲𝗻𝘁𝗲 ✅\n"
                  "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
-                f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
-                f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
-                f" ┖• 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗽𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {processing_time_str}\n"
+                f" 🎬┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
+                f" 🗜️┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
+                f" 📉┠• 𝗥𝗲𝗱𝘂𝗰𝗰𝗶𝗼𝗻: {compression_ratio:.1f}%\n"
+                f" ⏰┖• 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗽𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {processing_time_str}\n"
                  "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
                 f"⚙️𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮⚙️\n"
                 f"•𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏:  {video_settings['resolution']}\n" 
@@ -149,7 +150,7 @@ async def compress_video(client, message: Message):  # Cambiar a async
             if thumbnail_path and os.path.exists(thumbnail_path):
                 os.remove(thumbnail_path)
     else:
-        await app.send_message(chat_id=message.chat.id, text="Por favor, responde a un video para comprimirlo.")
+        await app.send_message(chat_id=message.chat.id, text="Responde a un video para comprimirlo.")
 
 async def handle_start(client, message):
     await message.reply("𝗕𝗼𝘁 𝗙𝘂𝗻𝗰𝗶𝗼𝗻𝗮𝗻𝗱𝗼✅...")
@@ -158,13 +159,13 @@ async def add_user(client, message):
     new_user_id = int(message.text.split()[1])
     temp_users.append(new_user_id)
     allowed_users.append(new_user_id)
-    await message.reply(f"Usuario {new_user_id} añadido temporalmente.")
+    await message.reply(f"Usuario {new_user_id} añadido al bot✅.")
 
 async def ban_user(client, message):
     ban_user_id = int(message.text.split()[1])
     if ban_user_id not in admin_users:
         ban_users.append(ban_user_id)
-        await message.reply(f"Usuario {ban_user_id} baneado.")
+        await message.reply(f"Usuario {ban_user_id} baneado del bot❌.")
     else:
         await message.reply("No puedes banear a un administrador.")
 
@@ -183,7 +184,7 @@ def access_command(client, message):
             allowed_users.append(user_id)  # Añadir también a allowed_users
             message.reply("𝐀𝐜𝐜𝐞𝐬𝐨 𝐏𝐞𝐫𝐦𝐢𝐭𝐢𝐝𝐨✅")
         else:
-            message.reply("Ya estás en la lista de acceso temporal.")
+            message.reply("Ya estás en la lista de usuarios permitidos📝.")
     else:
         message.reply("𝐀𝐜𝐜𝐞𝐬𝐨 𝐃𝐞𝐧𝐞𝐠𝐚𝐝𝐨❌")
 
