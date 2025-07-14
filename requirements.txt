@@ -1,4 +1,4 @@
-pyrogram
+kurigram
 requests
 aiofiles
 aiohttp
@@ -8,4 +8,3 @@ py7zr
 tgcrypto
 cryptg
 ffmpeg-python
-

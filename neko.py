@@ -14,6 +14,7 @@ from moodleclient import upload_token
 import datetime
 import subprocess
 from pyrogram.types import Message
+import ffmpeg
 
 
 # Configuracion del bot
@@ -188,11 +189,45 @@ async def compress_video(client, message: Message):  # Cambiar a async
                     print(output.strip())
             # Recuperar tamaño y duración
             compressed_size = os.path.getsize(compressed_video_path)
-            duration = subprocess.check_output(["ffprobe", "-v", "error", "-show_entries",
-                                                 "format=duration", "-of", "default=noprint_wrappers=1:nokey=1",
-                                                 compressed_video_path])
-            duration = float(duration.strip())
-            duration_str = str(datetime.timedelta(seconds=duration))
+            
+            # Analiza el video comprimido y obtiene la duracion
+            try:
+                probe = ffmpeg.probe(compressed_video_path)
+                duration = int(float(probe.get('format', {}).get('duration', 0)))
+                if duration == 0:
+                    for stream in probe.get('streams', []):
+                        if 'duration' in stream:
+                            duration = int(float(stream['duration']))
+                            break
+                if duration == 0:
+                    print(f"Warning: Couldn't determine duration for {compressed_video_path}. Setting to 0.")
+                    duration = 0
+
+            except Exception as e:
+                print(f"Error probing video {compressed_video_path}: {str(e)}")
+                print("Setting duration to 0 and continuing...")
+                duration = 0
+
+            # Generar miniatura (opcional)
+            thumbnail_path = f"{compressed_video_path}_thumb.jpg"
+            try:
+                (
+                    ffmpeg
+                    .input(compressed_video_path, ss=duration//2 if duration > 0 else 0)
+                    .filter('scale', 320, -1)
+                    .output(thumbnail_path, vframes=1)
+                    .overwrite_output()
+                    .run(capture_stdout=True, capture_stderr=True)
+                )
+            except Exception as e:
+                print(f"Error generating thumbnail for {compressed_video_path}: {str(e)}")
+                print("Continuing without thumbnail...")
+                thumbnail_path = None
+            '''
+            #duration = subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", compressed_video_path])
+            #duration = float(duration.strip())
+            #duration_str = str(datetime.timedelta(seconds=duration))
+            '''
             processing_time = datetime.datetime.now() - start_time
             processing_time_str = str(processing_time).split('.')[0]  # Formato sin microsegundos
             # Descripción para el video comprimido
@@ -209,8 +244,11 @@ async def compress_video(client, message: Message):  # Cambiar a async
                 f"•𝑭𝑷𝑺: {video_settings['fps']}\n"
                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
             )
-            # Enviar el video comprimido con la descripción
-            await app.send_video(chat_id=message.chat.id, video=compressed_video_path, caption=description)
+            # Enviar el video comprimido con la descripción, miniatura y duración
+            if thumbnail_path:
+                await app.send_video(chat_id=message.chat.id, video=compressed_video_path, caption=description, thumb=thumbnail_path, duration=duration)
+            else:
+                await app.send_video(chat_id=message.chat.id, video=compressed_video_path, caption=description, duration=duration)
         except Exception as e:
             await app.send_message(chat_id=message.chat.id, text=f"Ocurrió un error al comprimir el video: {e}")
         finally:
@@ -218,6 +256,8 @@ async def compress_video(client, message: Message):  # Cambiar a async
                 os.remove(original_video_path)
             if os.path.exists(compressed_video_path):
                 os.remove(compressed_video_path)
+            if thumbnail_path and os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
     else:
         await app.send_message(chat_id=message.chat.id, text="Por favor, responde a un video para comprimirlo.")
 
