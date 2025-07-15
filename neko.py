@@ -12,48 +12,27 @@ from pyrogram.types import Message
 import ffmpeg
 import asyncio
 from time import time
-from pymongo import MongoClient
-from config import *
 
-compression_queue = asyncio.Queue()
-processing_task = None
-
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client[DATABASE_NAME]
-users_col = db["users"]
-
-# Asegúrate de que la colección de usuarios existe
-if "users" not in db.list_collection_names():
-    db.create_collection("users")
-
-# Añadir o mantener admins válidos
-for admin in ADMINS_IDS:
-    users_col.update_one(
-        {"user_id": admin},
-        {
-            "$set": {
-                "role": "admin"
-            }
-        },
-        upsert=True
-    )
-
-# Buscar admins en BD que NO estén en ADMINS_IDS y degradarlos
-db_admins = users_col.find({"role": "admin"})
-for user in db_admins:
-    if user["user_id"] not in ADMINS_IDS:
-        users_col.update_one(
-            {"user_id": user["user_id"]},
-            {"$set": {"role": "temp"}}  # o puedes usar "temp" si lo prefieres
-        )
+# Configuracion del bot
+api_id = os.getenv('API_ID')
+api_hash = os.getenv('API_HASH')
+bot_token = os.getenv('TOKEN')
 
 # Administradores y Usuarios del bot
-admin_users = [doc["user_id"] for doc in users_col.find({"role": "admin"})]
-users = [doc["user_id"] for doc in users_col.find({"role": "user"})]
-temp_users = [doc["user_id"] for doc in users_col.find({"role": "temp"})]
-ban_users = [doc["user_id"] for doc in users_col.find({"role": "banned"})]
+admin_users = list(map(int, os.getenv('ADMINS').split(',')))
+users = list(map(int, os.getenv('USERS').split(',')))
+temp_users = []
+ban_users = []
 allowed_users = admin_users + users + temp_users
-app = Client("my_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+
+# Configuración de compresión de video
+# Puedes ajustar estos valores según tus necesidades
+# Estos valores son para una compresión moderada, puedes ajustarlos según tus necesidades
+# Resolución, CRF, bitrate de audio, FPS, preset y codec
+# Puedes cambiar estos valores según tus preferencias
+# Ejemplo: 'resolution': '1280x720', 'crf': '23', 'audio_bitrate': '128k', 'fps': '30', 'preset': 'medium', 'codec': 'libx264'
+# Estos valores son para una compresión moderada, puedes ajustarlos según tus necesidades
 
 video_settings = {
     'resolution': '854x480',
