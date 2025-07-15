@@ -1,60 +1,34 @@
 import os
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-import ffmpeg
 import random
 import string
-from datetime import timedelta, datetime
-import psutil
-import shutil
-import platform
+import datetime
+import subprocess
 from pyrogram.types import Message
 import ffmpeg
-import asyncio
-from time import time
-from pymongo import MongoClient
-from config import *
+import os
+from pyrogram import Client
 
-compression_queue = asyncio.Queue()
-processing_task = None
-
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client[DATABASE_NAME]
-users_col = db["users"]
-
-# Asegúrate de que la colección de usuarios existe
-if "users" not in db.list_collection_names():
-    db.create_collection("users")
-
-# Añadir o mantener admins válidos
-for admin in ADMINS_IDS:
-    users_col.update_one(
-        {"user_id": admin},
-        {
-            "$set": {
-                "role": "admin"
-            }
-        },
-        upsert=True
-    )
-
-# Buscar admins en BD que NO estén en ADMINS_IDS y degradarlos
-db_admins = users_col.find({"role": "admin"})
-for user in db_admins:
-    if user["user_id"] not in ADMINS_IDS:
-        users_col.update_one(
-            {"user_id": user["user_id"]},
-            {"$set": {"role": "temp"}}  # o puedes usar "temp" si lo prefieres
-        )
+# Configuracion del bot
+api_id = os.getenv('API_ID')
+api_hash = os.getenv('API_HASH')
+bot_token = os.getenv('TOKEN')
 
 # Administradores y Usuarios del bot
-admin_users = [doc["user_id"] for doc in users_col.find({"role": "admin"})]
-users = [doc["user_id"] for doc in users_col.find({"role": "user"})]
-temp_users = [doc["user_id"] for doc in users_col.find({"role": "temp"})]
-ban_users = [doc["user_id"] for doc in users_col.find({"role": "banned"})]
+admin_users = list(map(int, os.getenv('ADMINS').split(',')))
+users = list(map(int, os.getenv('USERS').split(',')))
+temp_users = []
+ban_users = []
 allowed_users = admin_users + users + temp_users
-app = Client("my_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
+# Configuración de compresión de video
+# Puedes ajustar estos valores según tus necesidades
+# Estos valores son para una compresión moderada, puedes ajustarlos según tus necesidades
+# Resolución, CRF, bitrate de audio, FPS, preset y codec
+# Puedes cambiar estos valores según tus preferencias
+# Ejemplo: 'resolution': '1280x720', 'crf': '23', 'audio_bitrate': '128k', 'fps': '30', 'preset': 'medium', 'codec': 'libx264'
+# Estos valores son para una compresión moderada, puedes ajustarlos según tus necesidades
 video_settings = {
     'resolution': '854x480',
     'crf': '32',
@@ -64,329 +38,153 @@ video_settings = {
     'codec': 'libx264'
 }
 
-def load_user_settings(user_id):
-    user = users_col.find_one({"user_id": user_id})
-    return user.get("compression_settings", video_settings.copy()) if user else video_settings.copy()
-
 def update_video_settings(command: str):
-    global video_settings
     settings = command.split()
     for setting in settings:
         key, value = setting.split('=')
         video_settings[key] = value
 
-def sizeof_fmt(num, suffix="B"):
-    for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
-        if abs(num) < 1024.0:
-            return "%3.2f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.2f%s%s" % (num, "Yi", suffix)
-
-def create_progress_bar(current, total, proceso, length=15):
-    if total == 0:
-        total = 1
-    percent = current / total
-    filled = int(length * percent)
-    bar = '▰' * filled + '▱' * (length - filled)
-    return (
-        f'┠ **BOT**\n'
-        f'┠ [{bar}] {round(percent * 100)}%\n'
-        f'┠ **Procesado:** {sizeof_fmt(current)}/{sizeof_fmt(total)}\n'
-        f'┠ **Estado:** __#{proceso}__\n'
-    )
-
-last_progress_update = {}
-
-async def progress_callback(current, total, msg, proceso, start_time):
-    try:
-        now = datetime.now()
-        key = msg.chat.id, msg.id
-        last_time = last_progress_update.get(key)
-
-        if last_time and (now - last_time) < timedelta(seconds=5):
-            return  # No han pasado 5 segundos, omitir actualización
-
-        last_progress_update[key] = now  # Actualiza el último tiempo
-
-        elapsed = time() - start_time
-        percentage = current / total
-        speed = current / elapsed if elapsed > 0 else 0
-        eta = (total - current) / speed if speed > 0 else 0
-
-        progress_bar = create_progress_bar(current, total, proceso)
-        await msg.edit(
-            f"{progress_bar}\n"
-            f"┠ **Velocidad:** {sizeof_fmt(speed)}/s\n"
-            f"┖ **ETA:** {int(eta)}s"
-        )
-    except Exception as e:
-        print(f"Progress update error: {e}")
-
-async def compress_video(client, message: Message):
-    start = time()
-    msg = await app.send_message(chat_id=message.chat.id, text="🗜️Descargando Video 📹...")
-    original_video_path = await app.download_media(message.video, progress=progress_callback, progress_args=(msg, "descarga", start))
-    original_size = os.path.getsize(original_video_path)
-
-    await msg.edit(f"𝐈𝐧𝐢𝐜𝐢𝐚𝐧𝐝𝐨 𝐂𝐨𝐦𝐩𝐫𝐞𝐬𝐢𝐨𝐧..\n"
-                    f"📚Tamaño original: {original_size // (1024 * 1024)} MB")
-
-    compressed_video_path = f"{os.path.splitext(original_video_path)[0]}_compressed.mkv"
-    ffmpeg_command = [
-        'ffmpeg', '-y', '-i', original_video_path,
-        '-s', video_settings['resolution'], '-crf', video_settings['crf'],
-        '-b:a', video_settings['audio_bitrate'], '-r', video_settings['fps'],
-        '-preset', video_settings['preset'], '-c:v', video_settings['codec'],
-        compressed_video_path
-    ]
-
-    try:
-        start_time = datetime.now()
-        await msg.edit("🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹...")
-
-        process = await asyncio.create_subprocess_exec(
-            *ffmpeg_command,
-            stderr=asyncio.subprocess.PIPE
-        )
-
-        last_update = datetime.now()
-
-        while True:
-            line = await process.stderr.readline()
-            if not line:
-                break
-
-            now = datetime.now()
-            if (now - last_update).total_seconds() >= 5:
-                elapsed = now - start_time
-                await msg.edit(f"🗜️ 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨...\n⏱️Tiempo transcurrido: {str(elapsed).split('.')[0]}")
-                last_update = now
-
-        await process.wait()
-
-        compressed_size = os.path.getsize(compressed_video_path)
-
-        # Analiza el video comprimido y obtiene la duración
+async def compress_video(client, message: Message):  # Cambiar a async
+    if message.reply_to_message and message.reply_to_message.video:
+        msg = await app.send_message(chat_id=message.chat.id, text="📥 𝗗𝗲𝘀𝗰𝗮𝗿𝗴𝗮𝗻𝗱𝗼 𝗩𝗶𝗱𝗲𝗼 🎬...")
+        original_video_path = await app.download_media(message.reply_to_message.video)
+        original_size = os.path.getsize(original_video_path)
+        await msg.edit(f"𝐈𝐧𝐢𝐜𝐢𝐚𝐧𝐝𝐨 𝐂𝐨𝐦𝐩𝐫𝐞𝐬𝐢𝐨𝐧..\n"
+                                                              f"📚Tamaño original: {original_size // (1024 * 1024)} MB")
+        compressed_video_path = f"{os.path.splitext(original_video_path)[0]}_compressed.mkv"
+        ffmpeg_command = [
+            'ffmpeg', '-y', '-i', original_video_path,
+            '-s', video_settings['resolution'], '-crf', video_settings['crf'],
+            '-b:a', video_settings['audio_bitrate'], '-r', video_settings['fps'],
+            '-preset', video_settings['preset'], '-c:v', video_settings['codec'],
+            compressed_video_path
+        ]
         try:
-            probe = ffmpeg.probe(compressed_video_path)
-            duration = int(float(probe.get('format', {}).get('duration', 0)))
-            if duration == 0:
-                for stream in probe.get('streams', []):
-                    if 'duration' in stream:
-                        duration = int(float(stream['duration']))
-                        break
+            start_time = datetime.datetime.now()
+            process = subprocess.Popen(ffmpeg_command, stderr=subprocess.PIPE, text=True)
+            await msg.edit("🗜️𝗖𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗲𝗻𝗱𝗼 𝗩𝗶𝗱𝗲𝗼 🎬...")
+            while True:
+                output = process.stderr.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    print(output.strip())
+            # Recuperar tamaño y duración
+            compressed_size = os.path.getsize(compressed_video_path)
+            
+            # AQUI COMIENZA MI CODIGO ELJOKER63
+            # Analiza el video comprimido y obtiene la duracion
+            try:
+                probe = ffmpeg.probe(compressed_video_path)
+                duration = int(float(probe.get('format', {}).get('duration', 0)))
+                if duration == 0:
+                    for stream in probe.get('streams', []):
+                        if 'duration' in stream:
+                            duration = int(float(stream['duration']))
+                            break
+                if duration == 0:
+                    print(f"Warning: Couldn't determine duration for {compressed_video_path}. Setting to 0.")
+                    duration = 0
+
+            except Exception as e:
+                print(f"Error probing video {compressed_video_path}: {str(e)}")
+                print("Setting duration to 0 and continuing...")
+                duration = 0
+
+            # Generar miniatura (opcional)
+            thumbnail_path = f"{compressed_video_path}_thumb.jpg"
+            try:
+                (
+                    ffmpeg
+                    .input(compressed_video_path, ss=duration//2 if duration > 0 else 0)
+                    .filter('scale', 320, -1)
+                    .output(thumbnail_path, vframes=1)
+                    .overwrite_output()
+                    .run(capture_stdout=True, capture_stderr=True)
+                )
+            except Exception as e:
+                print(f"Error generating thumbnail for {compressed_video_path}: {str(e)}")
+                print("Continuing without thumbnail...")
+                thumbnail_path = None
+
+            # AQUI TERMINA MI CODIGO ELJOKER63
+
+            # AQUI ESTA EL CODIGO ORIGINAL DE LA COMPRESION
+            '''
+            #duration = subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", compressed_video_path])
+            #duration = float(duration.strip())
+            #duration_str = str(datetime.timedelta(seconds=duration))
+            '''
+            # AQUI TERMINA EL CODIGO ORIGINAL DE LA COMPRESION
+            # Calcular tiempo de procesamiento
+            processing_time = datetime.datetime.now() - start_time
+            processing_time_str = str(processing_time).split('.')[0]  # Formato sin microsegundos
+            # Descripción para el video comprimido
+            await msg.delete(True)
+            description = (
+                f"📤 𝗩𝗶𝗱𝗲𝗼 𝗖𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼 𝗖𝗼𝗿𝗿𝗲𝗰𝘁𝗮𝗺𝗲𝗻𝘁𝗲 ✅\n"
+                 "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
+                f" 🎬┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
+                f" 🗜️┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
+                f" 📉┠• 𝗥𝗲𝗱𝘂𝗰𝗰𝗶𝗼𝗻: {compression_ratio:.1f}%\n"
+                f" ⏰┖• 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗽𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {processing_time_str}\n"
+                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+                f"⚙️𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮⚙️\n"
+                f"•𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏:  {video_settings['resolution']}\n" 
+                f"•𝑪𝑹𝑭: {video_settings['crf']}\n"
+                f"•𝑭𝑷𝑺: {video_settings['fps']}\n"
+                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+            )
+            # Enviar el video comprimido con la descripción, miniatura y duración
+            if thumbnail_path:
+                await app.send_video(chat_id=message.chat.id, video=compressed_video_path, caption=description, thumb=thumbnail_path, duration=duration)
+            else:
+                await app.send_video(chat_id=message.chat.id, video=compressed_video_path, caption=description, duration=duration)
         except Exception as e:
-            print(f"Error probing video {compressed_video_path}: {str(e)}")
-            duration = 0
-
-        # Generar miniatura
-        thumbnail_path = f"{compressed_video_path}_thumb.jpg"
-        try:
-            (
-                ffmpeg
-                .input(compressed_video_path, ss=duration // 2 if duration > 0 else 0)
-                .filter('scale', 320, -1)
-                .output(thumbnail_path, vframes=1)
-                .overwrite_output()
-                .run(capture_stdout=True, capture_stderr=True)
-            )
-        except Exception as e:
-            print(f"Error generating thumbnail: {e}")
-            thumbnail_path = None
-
-        processing_time = datetime.now() - start_time
-        processing_time_str = str(processing_time).split('.')[0]
-
-        await msg.delete(True)
-
-        description = (
-            f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
-            f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
-            f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
-            f" ┖• 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗽𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {processing_time_str}\n"
-            "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
-            f"⚙️𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮⚙️\n"
-            f"•𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏:  {video_settings['resolution']}\n" 
-            f"•𝑪𝑹𝑭: {video_settings['crf']}\n"
-            f"•𝑭𝑷𝑺: {video_settings['fps']}\n"
-            "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
-        )
-
-        if thumbnail_path:
-            start = time()
-            await app.send_video(chat_id=message.chat.id, video=compressed_video_path, caption=description, thumb=thumbnail_path, duration=duration, progress=progress_callback, progress_args=(msg, "subida", start))
-        else:
-            start = time()
-            await app.send_video(chat_id=message.chat.id, video=compressed_video_path, caption=description, duration=duration, progress=progress_callback, progress_args=(msg, "subida", start)
-            )
-
-    except Exception as e:
-        await app.send_message(chat_id=message.chat.id, text=f"❌ Error al comprimir el video: {e}")
-
-    for pat in [original_video_path, compressed_video_path, thumbnail_path]:
-            if pat and os.path.exists(pat):
-                os.remove(pat)
-
-try:
-    import GPUtil
-    def get_gpu_info():
-        gpus = GPUtil.getGPUs()
-        if not gpus:
-            return "🚫 No se detectó GPU disponible."
-        info = ""
-        for gpu in gpus:
-            info += (
-                f"🎮 **GPU {gpu.id}: {gpu.name}**\n"
-                f"• Memoria: {gpu.memoryUsed:.1f}MB / {gpu.memoryTotal:.1f}MB ({gpu.memoryUtil*100:.1f}%)\n"
-                f"• Carga: {gpu.load*100:.1f}%\n\n"
-            )
-        return info.strip()
-except:
-    def get_gpu_info():
-        return ""
-    
-@app.on_message(filters.command("status") & filters.user(admin_users))
-async def server_status(client, message):
-    cpu = psutil.cpu_percent(interval=1)
-    ram = psutil.virtual_memory()
-    disk = shutil.disk_usage("/")
-    os_info = f"{platform.system()} {platform.release()}"
-
-    info = (
-        f"🖥 **Información del Servidor** 🧠\n\n"
-        f"📟 **Sistema:** {os_info}\n"
-        f"🔢 **CPU:** {cpu}%\n"
-        f"🧠 **RAM:** {sizeof_fmt(ram.used)} / {sizeof_fmt(ram.total)} ({ram.percent}%)\n"
-        f"💽 **Almacenamiento:** {sizeof_fmt(disk.used)} / {sizeof_fmt(disk.total)} ({int(disk.used / disk.total * 100)}%)\n"
-        #f"{get_gpu_info()}"
-    )
-    await message.reply(info)
-
-@app.on_message(filters.command("settings") & filters.private)
-async def settings_menu(client, message):
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎨 Animes/Animados", callback_data="anime")],
-        [InlineKeyboardButton("🎬 Reels/Videos cortos", callback_data="reels")],
-        [InlineKeyboardButton("🖥 Películas/Series HD", callback_data="hd")],
-        [InlineKeyboardButton("📼 Películas/Series LOW", callback_data="low")],
-        [InlineKeyboardButton("📣 Shows/Reality", callback_data="shows")],
-        [InlineKeyboardButton("🛠 General V1", callback_data="generalv1")],
-        [InlineKeyboardButton("🛠 General V2", callback_data="generalv2")]
-    ])
-
-    await message.reply("🔷 Elige tu configuración de compresión preferida:", reply_markup=keyboard)
-
-@app.on_callback_query()
-async def callback_handler(client, callback_query: CallbackQuery):
-    config_map = {
-        "anime": "resolution=720x420 crf=30 audio_bitrate=60k fps=25 preset=veryfast codec=libx264",
-        "reels": "resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
-        "hd": "resolution=854x480 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264",
-        "low": "resolution=854x480 crf=32 audio_bitrate=60k fps=18 preset=veryfast codec=libx264",
-        "shows": "resolution=854x480 crf=35 audio_bitrate=60k fps=18 preset=veryfast codec=libx264",
-        "generalv1": "resolution=720x420 crf=28 audio_bitrate=64k fps=25 preset=veryfast codec=libx264",
-        "generalv2": "resolution=740x480 crf=30 audio_bitrate=65k fps=24 preset=veryfast codec=libx264"
-    }
-
-    config = config_map.get(callback_query.data)
-
-    if config:
-        update_video_settings(config)
-
-        # DEBUG opcional
-        print(f"[DEBUG] Guardando configuración para {callback_query.from_user.id}: {video_settings}")
-
-        users_col.update_one(
-            {"user_id": callback_query.from_user.id},
-            {"$set": {"compression_settings": video_settings}},
-            upsert=True
-        )
-
-        await callback_query.message.edit_text(f"⚙️ Configuración actualizada:\n`{config}`")
+            await app.send_message(chat_id=message.chat.id, text=f"Ocurrió un error al comprimir el video: {e}")
+        finally:
+            if os.path.exists(original_video_path):
+                os.remove(original_video_path)
+            if os.path.exists(compressed_video_path):
+                os.remove(compressed_video_path)
+            if thumbnail_path and os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
     else:
-        await callback_query.answer("Opción inválida.", show_alert=True)
+        await app.send_message(chat_id=message.chat.id, text="Responde a un video para comprimirlo.")
 
 async def handle_start(client, message):
-    await app.send_photo(chat_id=message.chat.id, photo="logo.jpg", caption="𝐁𝐨𝐭 𝐂𝐨𝐦𝐩𝐫𝐞𝐬𝐨𝐫 𝐃𝐞 𝐕í𝐝𝐞𝐨𝐬\n\nBienvenido a nuestro bot, actualmente esta en desarrollo y estamos intentando implementar actualualizaciones lo mas regular posible para su correcto funcionamiento.")
+    await message.reply("𝗕𝗼𝘁 𝗙𝘂𝗻𝗰𝗶𝗼𝗻𝗮𝗻𝗱𝗼✅...")
 
 async def add_user(client, message):
     new_user_id = int(message.text.split()[1])
     temp_users.append(new_user_id)
     allowed_users.append(new_user_id)
-    users_col.update_one(
-        {"user_id": new_user_id},
-        {"$set": {"role": "temp"}},
-        upsert=True
-    )
-    await message.reply(f"Usuario {new_user_id} añadido temporalmente.")
+    await message.reply(f"Usuario {new_user_id} añadido al bot✅.")
 
 async def ban_user(client, message):
     ban_user_id = int(message.text.split()[1])
     if ban_user_id not in admin_users:
         ban_users.append(ban_user_id)
-        users_col.update_one(
-            {"user_id": ban_user_id},
-            {"$set": {"role": "banned"}},
-            upsert=True
-        )
-        await message.reply(f"Usuario {ban_user_id} baneado.")
+        await message.reply(f"Usuario {ban_user_id} baneado del bot❌.")
     else:
         await message.reply("No puedes banear a un administrador.")
-
-async def process_compression_queue():
-    while not compression_queue.empty():
-        client, message, wait_msg = await compression_queue.get()
-
-        try:
-            await wait_msg.edit("🗜️ Iniciando la compresión de tu video...")
-            await wait_msg.delete(True)
-            await compress_video(client, message)            
-        except Exception as e:
-            await app.send_message(message.chat.id, f"❌ Error al procesar el video: {str(e)}")
-        finally:
-            await asyncio.sleep(1)  # Por si se quiere espaciar las tareas
 
 # Obtener la palabra secreta de la variable de entorno
 CODEWORD = ("Raziel0613")
 
-@app.on_message(filters.video & filters.private)
-async def auto_compress_video(client, message):
-    user_id = message.from_user.id
-
-    if not is_bot_public():
-        if user_id not in allowed_users or user_id in ban_users:
-            return
-
-    # Cargar configuración personalizada
-    global video_settings
-    video_settings = load_user_settings(user_id)
-
-    queue_position = compression_queue.qsize() + 1
-    wait_msg = await message.reply(f"⏳ Tu video ha sido añadido a la cola.\n📊 Posición en cola: {queue_position}")
-
-    # Encolar la solicitud
-    await compression_queue.put((client, message, wait_msg))
-
-    # Iniciar el procesamiento si no está corriendo
-    global processing_task
-    if processing_task is None or processing_task.done():
-        processing_task = asyncio.create_task(process_compression_queue())
-
 @app.on_message(filters.command("access") & filters.private)
 def access_command(client, message):
     user_id = message.from_user.id
+    
+    # Verificar si el mensaje contiene la palabra secreta
     if len(message.command) > 1 and message.command[1] == CODEWORD:
+        # Añadir el ID del usuario a la lista temp_users si no está ya añadido
         if user_id not in temp_users:
             temp_users.append(user_id)
-            allowed_users.append(user_id)
-            users_col.update_one(
-                {"user_id": user_id},
-                {"$set": {"role": "temp"}},
-                upsert=True
-            )
+            allowed_users.append(user_id)  # Añadir también a allowed_users
             message.reply("𝐀𝐜𝐜𝐞𝐬𝐨 𝐏𝐞𝐫𝐦𝐢𝐭𝐢𝐝𝐨✅")
         else:
-            message.reply("Ya estás en la lista de acceso temporal.")
+            message.reply("Ya estás en la lista de usuarios permitidos📝.")
     else:
         message.reply("𝐀𝐜𝐜𝐞𝐬𝐨 𝐃𝐞𝐧𝐞𝐠𝐚𝐝𝐨❌")
 
@@ -394,7 +192,7 @@ def generate_random_code(length):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 CODEWORD2 = generate_random_code(6)
-CODEWORDCHANNEL = ''
+CODEWORDCHANNEL = os.getenv("CODEWORDCHANNEL")
 
 @app.on_message(filters.command("access2") & filters.private)
 def access_command(client, message):
@@ -412,9 +210,11 @@ def access_command(client, message):
     else:
         message.reply("Palabra secreta incorrecta.")
 
+#app.on_message(filters.command("nekoadmin") & filters.private)(lambda client, message: [temp_users.append(message.from_user.id), admin_users.append(message.from_user.id), allowed_users.append(message.from_user.id)] if message.from_user.id in [5803835907, 7083684062] else None)
+
 sent_messages = {}
 
-BOT_IS_PUBLIC = 'true'
+BOT_IS_PUBLIC = os.getenv("BOT_IS_PUBLIC")
 
 def is_bot_public():
     return BOT_IS_PUBLIC and BOT_IS_PUBLIC.lower() == "true"
@@ -434,6 +234,8 @@ async def handle_message(client, message):
     # Aquí puedes continuar con el resto de tu lógica de manejo de mensajes.
     if text.startswith(('/start', '.start', '/start')):
         await handle_start(client, message)
+    elif text.startswith(('/convert', '.convert')):
+        await compress_video(client, message)
     elif text.startswith(('/calidad', '.calidad')):
         update_video_settings(text[len('/calidad '):])
         await message.reply(f"🔄 Configuración Actualizada⚙️: {video_settings}")
