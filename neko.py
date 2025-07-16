@@ -7,16 +7,16 @@ import subprocess
 from pyrogram.types import Message
 import ffmpeg
 import os
-from pyrogram import Client
+from config import *
 
 # Configuracion del bot
-api_id = os.getenv('API_ID')
-api_hash = os.getenv('API_HASH')
-bot_token = os.getenv('TOKEN')
+api_id = API_ID
+api_hash = API_HASH
+bot_token = BOT_TOKEN
 
 # Administradores y Usuarios del bot
-admin_users = list(map(int, os.getenv('ADMINS').split(',')))
-users = list(map(int, os.getenv('USERS').split(',')))
+admin_users = ADMINS_IDS
+users = USERS
 temp_users = []
 ban_users = []
 allowed_users = admin_users + users + temp_users
@@ -30,10 +30,10 @@ app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 # Ejemplo: 'resolution': '1280x720', 'crf': '23', 'audio_bitrate': '128k', 'fps': '30', 'preset': 'medium', 'codec': 'libx264'
 # Estos valores son para una compresión moderada, puedes ajustarlos según tus necesidades
 video_settings = {
-    'resolution': '854x480',
-    'crf': '32',
-    'audio_bitrate': '60k',
-    'fps': '18',
+    'resolution': '720x420',
+    'crf': '28',
+    'audio_bitrate': '64k',
+    'fps': '24',
     'preset': 'veryfast',
     'codec': 'libx264'
 }
@@ -46,7 +46,7 @@ def update_video_settings(command: str):
 
 async def compress_video(client, message: Message):  # Cambiar a async
     if message.reply_to_message and message.reply_to_message.video:
-        msg = await app.send_message(chat_id=message.chat.id, text="🗜️Descargando Video 📹...")
+        msg = await app.send_message(chat_id=message.chat.id, text="╭✠╼━━━━━❖━━━━━━✠╮\n   🗜️𝐃𝐞𝐬𝐜𝐚𝐫𝐠𝐚𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨🎬\n╰✠╼━━━━━❖━━━━━━✠╯")
         original_video_path = await app.download_media(message.reply_to_message.video)
         original_size = os.path.getsize(original_video_path)
         await msg.edit(f"𝐈𝐧𝐢𝐜𝐢𝐚𝐧𝐝𝐨 𝐂𝐨𝐦𝐩𝐫𝐞𝐬𝐢𝐨𝐧..\n"
@@ -62,7 +62,7 @@ async def compress_video(client, message: Message):  # Cambiar a async
         try:
             start_time = datetime.datetime.now()
             process = subprocess.Popen(ffmpeg_command, stderr=subprocess.PIPE, text=True)
-            await msg.edit("🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨 📹...")
+            await msg.edit("╭✠╼━━━━━━❖━━━━━━✠╮\n   🗜️𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐞𝐧𝐝𝐨 𝐕𝐢𝐝𝐞𝐨🎬\n╰✠╼━━━━━━❖━━━━━━✠╯")
             while True:
                 output = process.stderr.readline()
                 if output == '' and process.poll() is not None:
@@ -122,17 +122,20 @@ async def compress_video(client, message: Message):  # Cambiar a async
             # Descripción para el video comprimido
             await msg.delete(True)
             description = (
-                f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞📥\n"
-                 "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰\n"
+                "╭✠╼━━━━━━━━━❖━━━━━━━━━━✠╮\n"
+                f"🗜️𝐕𝐢𝐝𝐞𝐨 𝐂𝐨𝐦𝐩𝐫𝐢𝐦𝐢𝐝𝐨 𝐂𝐨𝐫𝐫𝐞𝐜𝐭𝐚𝐦𝐞𝐧𝐭𝐞✅\n"
+                "╰✠╼━━━━━━━━━❖━━━━━━━━━━✠╯\n"
+                 "╭✠╼━━━━━━━━━❖━━━━━━━━━━✠╮\n"
                 f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗼𝗿𝗶𝗴𝗶𝗻𝗮𝗹: {original_size // (1024 * 1024)} MB\n"
                 f" ┠• 𝗧𝗮𝗺𝗮ñ𝗼 𝗰𝗼𝗺𝗽𝗿𝗶𝗺𝗶𝗱𝗼: {compressed_size // (1024 * 1024)} MB\n"
                 f" ┖• 𝗧𝗶𝗲𝗺𝗽𝗼 𝗱𝗲 𝗽𝗿𝗼𝗰𝗲𝘀𝗮𝗺𝗶𝗲𝗻𝘁𝗼: {processing_time_str}\n"
-                 "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+                 "╰✠╼━━━━━━━━━❖━━━━━━━━━━✠╯\n"
+                "╭✠╼━━━━━❖━━━━━━━✠╮\n"
                 f"⚙️𝗖𝗼𝗻𝗳𝗶𝗴𝘂𝗿𝗮𝗰𝗶𝗼𝗻 𝘂𝘀𝗮𝗱𝗮⚙️\n"
                 f"•𝑹𝒆𝒔𝒐𝒍𝒖𝒄𝒊𝒐‌𝒏:  {video_settings['resolution']}\n" 
                 f"•𝑪𝑹𝑭: {video_settings['crf']}\n"
                 f"•𝑭𝑷𝑺: {video_settings['fps']}\n"
-                "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n"
+                "╰✠╼━━━━━❖━━━━━━━✠╯\n"
             )
             # Enviar el video comprimido con la descripción, miniatura y duración
             if thumbnail_path:
@@ -152,7 +155,7 @@ async def compress_video(client, message: Message):  # Cambiar a async
         await app.send_message(chat_id=message.chat.id, text="Por favor, responde a un video para comprimirlo.")
 
 async def handle_start(client, message):
-    await message.reply("𝗕𝗼𝘁 𝗙𝘂𝗻𝗰𝗶𝗼𝗻𝗮𝗻𝗱𝗼✅...")
+    await message.reply("🗜️𝐁𝐨𝐭 𝐂𝐨𝐦𝐩𝐫𝐞𝐬𝐨𝐫 𝐃𝐞 𝐕í𝐝𝐞𝐨𝐬🎬\n**Creado por** @InfiniteNetworkAdmin\n\n⚙️𝗦𝗲𝗹𝗲𝗰𝗰𝗶𝗼𝗻𝗮𝗿 𝗖𝗮𝗹𝗶𝗱𝗮𝗱⚙️:\n\n╭✠╼━━━━━❖━━━━━━✠╮\n**🗜️Compresión General🛠️**\n╰✠╼━━━━━❖━━━━━━✠╯\n➣ `/calidad resolution=720x420 crf=28 audio_bitrate=64k fps=25 preset=veryfast codec=libx264`\n\n╭✠╼━━━━━━❖━━━━━━✠╮\n**📱Reels y Videos cortos🎬**\n╰✠╼━━━━━━❖━━━━━━✠╯\n➣ `/calidad resolution=420x720 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264`\n\n╭✠╼━━━━━━━━❖━━━━━━━━✠╮\n**🎞️Pelis/Series (Buena calidad)**🎬\n╰✠╼━━━━━━━━❖━━━━━━━━✠╯\n➣ `/calidad resolution=854x480 crf=25 audio_bitrate=60k fps=30 preset=veryfast codec=libx264`\n\n╭✠╼━━━❖━━━━✠╮\n**📺Shows/Reality🎬**\n╰✠╼━━━❖━━━━✠╯\n➣ `/calidad resolution=854x480 crf=35 audio_bitrate=60k fps=18 preset=veryfast codec=libx264`")
 
 async def add_user(client, message):
     new_user_id = int(message.text.split()[1])
@@ -213,8 +216,6 @@ def access_command(client, message):
 
 sent_messages = {}
 
-BOT_IS_PUBLIC = os.getenv("BOT_IS_PUBLIC")
-
 def is_bot_public():
     return BOT_IS_PUBLIC and BOT_IS_PUBLIC.lower() == "true"
 
@@ -251,6 +252,6 @@ async def handle_message(client, message):
         if original_message:
             user_id = original_message["user_id"]
             sender_info = f"Respuesta de @{message.from_user.username}" if message.from_user.username else f"Respuesta de user ID: {message.from_user.id}"
-            await client.send_message(user_id, f"{sender_info}: {message.text}")
+            await app.send_message(user_id, f"{sender_info}: {message.text}")
             
 app.run()
